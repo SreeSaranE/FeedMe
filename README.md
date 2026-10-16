@@ -14,17 +14,12 @@ Standalone Expo React Native app that fetches RSS feeds, filters for AI & Open S
 
 ## Getting Started
 
-1. Navigate to the mobile directory:
-   ```bash
-   cd mobile
-   ```
-
-2. Start the Expo development server:
+1. Start the Expo development server:
    ```bash
    npx expo start
    ```
 
-3. Scan the QR code using **Expo Go** on your Android or iOS device, or press `w` to open in your web browser.
+2. Scan the QR code using **Expo Go** on your Android or iOS device, or press `w` to open in your web browser.
 
 ## Configuration
 

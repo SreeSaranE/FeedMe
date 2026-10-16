@@ -1,0 +1,37 @@
+{
+  "expo": {
+    "name": "FeedMe",
+    "slug": "mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "skurd.feedme",
+      "adaptiveIcon": {
+        "backgroundColor": "#D9D9D9",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-web-browser",
+      "expo-font",
+      "expo-image",
+      "expo-secure-store"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "0f4058d2-804e-4cc8-8d52-3cb140670a8a"
+      }
+    },
+    "owner": "sreesaran.elangovan"
+  }
+}

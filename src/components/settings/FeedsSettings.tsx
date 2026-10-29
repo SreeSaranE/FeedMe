@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, Pressable, Switch, Alert, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { FeedConfig } from '../../types';
-import { DEFAULT_FEEDS } from '../../constants/defaultFeeds';
 import { useTheme, spacing, radius, type } from '../../theme';
-import { SectionLabel, SettingsPage } from './shared';
+import { Card, SectionLabel, SettingsPage } from './shared';
 
 interface Props {
   feeds: FeedConfig[];
+  defaultFeeds: FeedConfig[]; // the feeds of the selected topics, for Reset
   onChange: (feeds: FeedConfig[]) => void;
   articlesPerFeed: number;
   onArticlesPerFeedChange: (v: number) => void;
@@ -15,6 +15,7 @@ interface Props {
 
 export const FeedsSettings: React.FC<Props> = ({
   feeds,
+  defaultFeeds,
   onChange,
   articlesPerFeed,
   onArticlesPerFeedChange,
@@ -55,21 +56,22 @@ export const FeedsSettings: React.FC<Props> = ({
   };
 
   const reset = () => {
-    Alert.alert('Reset Feeds', 'Reset to default curated tech feeds?', [
+    Alert.alert('Reset Feeds', 'Reset to the default feeds of your topics? Feeds you added are removed.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Reset', onPress: () => onChange(DEFAULT_FEEDS) },
+      { text: 'Reset', onPress: () => onChange(defaultFeeds) },
     ]);
   };
 
   const inputStyle = [
     type.body,
     styles.input,
-    { backgroundColor: colors.surface, color: colors.text },
+    { backgroundColor: colors.grouped, color: colors.text },
   ];
 
   return (
     <SettingsPage>
       <SectionLabel>Articles per feed</SectionLabel>
+      <Card>
       <View style={styles.countRow}>
         {[2, 3, 5, 8].map(count => {
           const selected = articlesPerFeed === count;
@@ -82,7 +84,7 @@ export const FeedsSettings: React.FC<Props> = ({
               style={({ pressed }) => [
                 styles.countChip,
                 {
-                  backgroundColor: selected ? colors.text : colors.surface,
+                  backgroundColor: selected ? colors.text : colors.grouped,
                   opacity: pressed ? 0.7 : 1,
                 },
               ]}
@@ -99,6 +101,7 @@ export const FeedsSettings: React.FC<Props> = ({
           );
         })}
       </View>
+      </Card>
 
       <View style={styles.headerRow}>
         <SectionLabel>{`Feeds (${feeds.filter(f => f.enabled).length}/${feeds.length})`}</SectionLabel>
@@ -113,6 +116,7 @@ export const FeedsSettings: React.FC<Props> = ({
       </View>
 
       {showAdd && (
+        <Card style={styles.addCard}>
         <View style={styles.addForm}>
           <TextInput
             style={inputStyle}
@@ -142,10 +146,12 @@ export const FeedsSettings: React.FC<Props> = ({
             <Text style={[type.label, { color: colors.onAccent }]}>Add feed</Text>
           </Pressable>
         </View>
+        </Card>
       )}
 
+      <Card>
       {feeds.map(feed => (
-        <View key={feed.id} style={[styles.feedRow, { borderBottomColor: colors.separator }]}>
+        <View key={feed.id} style={styles.feedRow}>
           <View style={styles.feedInfo}>
             <Text style={[type.body, { color: colors.text }]}>{feed.name}</Text>
             <Text style={[type.caption, { color: colors.textTertiary }]} numberOfLines={1}>
@@ -167,12 +173,13 @@ export const FeedsSettings: React.FC<Props> = ({
           </Pressable>
         </View>
       ))}
+      </Card>
     </SettingsPage>
   );
 };
 
 const styles = StyleSheet.create({
-  countRow: { flexDirection: 'row', gap: spacing.sm },
+  countRow: { flexDirection: 'row', gap: spacing.sm, padding: spacing.md },
   countChip: {
     flex: 1,
     height: 40,
@@ -183,7 +190,8 @@ const styles = StyleSheet.create({
   },
   headerRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
   headerActions: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.sm },
-  addForm: { gap: spacing.sm, marginBottom: spacing.md },
+  addCard: { marginBottom: spacing.md },
+  addForm: { gap: spacing.sm, padding: spacing.md },
   input: {
     height: 44,
     paddingHorizontal: spacing.md,
@@ -202,7 +210,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
     paddingVertical: spacing.sm + 2,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: spacing.md,
   },
   feedInfo: { flex: 1 },
 });

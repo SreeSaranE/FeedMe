@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as WebBrowser from 'expo-web-browser';
 import { AVAILABLE_MODELS } from '../../constants/defaultFeeds';
-import { useTheme, spacing, radius, type } from '../../theme';
-import { SectionLabel, SettingsPage } from './shared';
+import { useTheme, spacing, type } from '../../theme';
+import { Card, SectionLabel, SettingsPage } from './shared';
 import { ApiUsage, UsageService } from '../../services/usage';
 
 interface Props {
@@ -28,99 +27,61 @@ export const ApiSettings: React.FC<Props> = ({
     UsageService.get().then(u => setUsage({ ...u }));
   }, []);
 
-  const openAiStudio = async () => {
-    try {
-      await WebBrowser.openBrowserAsync('https://aistudio.google.com/api-keys', {
-        toolbarColor: colors.background,
-        controlsColor: colors.accent,
-      });
-    } catch {
-      // ignore
-    }
-  };
-
   return (
     <SettingsPage>
       <SectionLabel>Gemini API key</SectionLabel>
-      <View style={[styles.field, { backgroundColor: colors.surface }]}>
-        <TextInput
-          style={[type.body, styles.input, { color: colors.text }]}
-          placeholder="API key"
-          placeholderTextColor={colors.textTertiary}
-          value={apiKey}
-          onChangeText={onApiKeyChange}
-          secureTextEntry={!showKey}
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-        <Pressable
-          onPress={() => setShowKey(!showKey)}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel={showKey ? 'Hide API key' : 'Show API key'}
-        >
-          <Ionicons
-            name={showKey ? 'eye-off-outline' : 'eye-outline'}
-            size={20}
-            color={colors.textSecondary}
+      <Card>
+        <View style={styles.field}>
+          <TextInput
+            style={[type.body, styles.input, { color: colors.text }]}
+            placeholder="API key"
+            placeholderTextColor={colors.textTertiary}
+            value={apiKey}
+            onChangeText={onApiKeyChange}
+            secureTextEntry={!showKey}
+            autoCapitalize="none"
+            autoCorrect={false}
           />
-        </Pressable>
-      </View>
-      <Text style={[type.caption, styles.hint, { color: colors.textSecondary }]}>
-        Get a key from Google AI Studio. It is stored in your device keystore and only sent to Google.
-      </Text>
-
-      {!apiKey.trim() && (
-        <View style={styles.guideContainer}>
-          <SectionLabel>How to get an API key</SectionLabel>
-          <View style={styles.stepsList}>
-            <Pressable
-              onPress={openAiStudio}
-              accessibilityRole="link"
-              style={({ pressed }) => [styles.stepLink, { opacity: pressed ? 0.6 : 1 }]}
-            >
-              <Text style={[type.body, { color: colors.accent, fontWeight: '500' }]}>
-                1. Open Google AI Studio
-              </Text>
-              <Ionicons name="open-outline" size={15} color={colors.accent} />
-            </Pressable>
-            <Text style={[type.body, { color: colors.textSecondary }]}>
-              2. Sign in with your Google account.
-            </Text>
-            <Text style={[type.body, { color: colors.textSecondary }]}>
-              3. Tap <Text style={{ color: colors.text, fontWeight: '500' }}>Create API key</Text> and choose a project.
-            </Text>
-            <Text style={[type.body, { color: colors.textSecondary }]}>
-              4. Copy your key and paste it into the field above.
-            </Text>
-          </View>
+          <Pressable
+            onPress={() => setShowKey(!showKey)}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={showKey ? 'Hide API key' : 'Show API key'}
+          >
+            <Ionicons
+              name={showKey ? 'eye-off-outline' : 'eye-outline'}
+              size={20}
+              color={colors.textSecondary}
+            />
+          </Pressable>
         </View>
-      )}
+      </Card>
 
       <SectionLabel>Model</SectionLabel>
-      {AVAILABLE_MODELS.map(m => {
-        const selected = model === m.value;
-        return (
-          <Pressable
-            key={m.value}
-            onPress={() => onModelChange(m.value)}
-            accessibilityRole="radio"
-            accessibilityState={{ selected }}
-            style={({ pressed }) => [
-              styles.optionRow,
-              { borderBottomColor: colors.separator, opacity: pressed ? 0.6 : 1 },
-            ]}
-          >
-            <Text style={[type.body, { color: colors.text, flex: 1 }]}>{m.label}</Text>
-            {selected && <Ionicons name="checkmark" size={20} color={colors.accent} />}
-          </Pressable>
-        );
-      })}
+      <Card>
+        {AVAILABLE_MODELS.map(m => {
+          const selected = model === m.value;
+          return (
+            <Pressable
+              key={m.value}
+              onPress={() => onModelChange(m.value)}
+              accessibilityRole="radio"
+              accessibilityState={{ selected }}
+              style={({ pressed }) => [styles.optionRow, { opacity: pressed ? 0.6 : 1 }]}
+            >
+              <Text style={[type.body, { color: colors.text, flex: 1 }]}>{m.label}</Text>
+              {selected && <Ionicons name="checkmark" size={20} color={colors.accent} />}
+            </Pressable>
+          );
+        })}
+      </Card>
 
       <SectionLabel>Usage today</SectionLabel>
-      <UsageRow label="Requests" value={(usage?.requests ?? 0).toLocaleString('en-US')} />
-      <UsageRow label="Tokens" value={(usage?.tokens ?? 0).toLocaleString('en-US')} />
-      <UsageRow label="Failed requests" value={(usage?.failed ?? 0).toLocaleString('en-US')} />
+      <Card>
+        <UsageRow label="Requests" value={(usage?.requests ?? 0).toLocaleString('en-US')} />
+        <UsageRow label="Tokens" value={(usage?.tokens ?? 0).toLocaleString('en-US')} />
+        <UsageRow label="Failed requests" value={(usage?.failed ?? 0).toLocaleString('en-US')} />
+      </Card>
       <Text style={[type.caption, styles.hint, { color: colors.textSecondary }]}>
         Counted by this app on this device only, per calendar day. Other use of the same key is not included.
       </Text>
@@ -131,7 +92,7 @@ export const ApiSettings: React.FC<Props> = ({
 function UsageRow({ label, value }: { label: string; value: string }) {
   const { colors } = useTheme();
   return (
-    <View style={[styles.optionRow, { borderBottomColor: colors.separator }]}>
+    <View style={styles.optionRow}>
       <Text style={[type.body, { color: colors.text, flex: 1 }]}>{label}</Text>
       <Text style={[type.body, { color: colors.textSecondary }]}>{value}</Text>
     </View>
@@ -139,29 +100,19 @@ function UsageRow({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
-  hint: { marginTop: spacing.sm },
+  hint: { marginTop: spacing.sm, marginLeft: spacing.sm },
   field: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
-    height: 44,
-    borderRadius: radius.sm,
-    borderCurve: 'continuous',
+    height: 52,
   },
   input: { flex: 1, paddingVertical: 0 },
   optionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 44,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  guideContainer: { marginTop: spacing.xs },
-  stepsList: { gap: spacing.sm, marginTop: spacing.xs },
-  stepLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs + 2,
-    alignSelf: 'flex-start',
+    minHeight: 52,
+    paddingHorizontal: spacing.md,
   },
 });

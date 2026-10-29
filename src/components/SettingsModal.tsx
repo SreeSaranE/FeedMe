@@ -6,10 +6,13 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 import { FeedConfig, AppSettings } from '../types';
 import { AVAILABLE_MODELS } from '../constants/defaultFeeds';
 import { useTheme, spacing, type } from '../theme';
-import { NavRow, SettingsPage } from './settings/shared';
+import { Card, NavRow, SettingsPage } from './settings/shared';
 import { ApiSettings } from './settings/ApiSettings';
 import { FeedsSettings } from './settings/FeedsSettings';
 import { DataSettings, parseDays } from './settings/DataSettings';
+import { TopicsSettings } from './settings/TopicsSettings';
+import { AboutSettings } from './settings/AboutSettings';
+import { applyTopicsToFeeds, buildFeedsForTopics, toggleTopicSelection } from '../constants/topics';
 
 interface SettingsModalProps {
   visible: boolean;
@@ -20,15 +23,18 @@ interface SettingsModalProps {
   onSaveFeeds: (feeds: FeedConfig[]) => Promise<void>;
   onClearCache: () => Promise<void>;
   onDeleteOlder: (days: number) => Promise<number>;
+  onShowIntro: () => void;
 }
 
-type Page = 'home' | 'api' | 'feeds' | 'data';
+type Page = 'home' | 'api' | 'topics' | 'feeds' | 'data' | 'about';
 
 const PAGE_TITLES: Record<Page, string> = {
   home: 'Settings',
   api: 'API Settings',
+  topics: 'Topics',
   feeds: 'Feeds',
   data: 'Data Management',
+  about: 'About FeedMe',
 };
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -40,6 +46,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onSaveFeeds,
   onClearCache,
   onDeleteOlder,
+  onShowIntro,
 }) => {
   const { colors } = useTheme();
   const [page, setPage] = useState<Page>('home');
@@ -50,6 +57,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [articlesPerFeed, setArticlesPerFeed] = useState(settings.articlesPerFeed || 3);
   const [deleteDays, setDeleteDays] = useState(String(settings.deleteOlderThanDays || 10));
   const [feedList, setFeedList] = useState<FeedConfig[]>(feeds);
+  const [topicIds, setTopicIds] = useState(settings.selectedTopics);
+  const [topicLimitHit, setTopicLimitHit] = useState(false);
 
   // Each time the sheet opens, start from the saved values on the home page.
   // (Adjusting state during render avoids an extra render pass from an effect.)
@@ -63,6 +72,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setArticlesPerFeed(settings.articlesPerFeed || 3);
       setDeleteDays(String(settings.deleteOlderThanDays || 10));
       setFeedList(feeds);
+      setTopicIds(settings.selectedTopics);
+      setTopicLimitHit(false);
     }
   }
 
@@ -72,10 +83,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       geminiApiKey: apiKey.trim(),
       geminiModel: model,
       articlesPerFeed,
+      selectedTopics: topicIds,
       deleteOlderThanDays: parseDays(deleteDays) ?? settings.deleteOlderThanDays,
     });
     await onSaveFeeds(feedList);
     onClose();
+  };
+
+  // The feed list follows the topics right away, so the Feeds page and its counts stay in step.
+  const handleToggleTopic = (id: string) => {
+    const { selected, limitHit } = toggleTopicSelection(topicIds, id, { allowEmpty: false });
+    setTopicLimitHit(limitHit);
+    if (selected !== topicIds) {
+      setTopicIds(selected);
+      setFeedList(current => applyTopicsToFeeds(current, selected));
+    }
+  };
+
+  const handleShowIntro = async () => {
+    await handleSaveAndClose();
+    onShowIntro();
   };
 
   // Hardware back / swipe-down: step back through pages before closing.
@@ -126,11 +153,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {page === 'home' && (
           <SettingsPage>
+            <Card>
             <NavRow
               icon="key-outline"
               title="API Settings"
               subtitle={modelLabel}
               onPress={() => setPage('api')}
+            />
+            <NavRow
+              icon="pricetags-outline"
+              title="Topics"
+              subtitle={`${topicIds.length} selected`}
+              onPress={() => setPage('topics')}
             />
             <NavRow
               icon="newspaper-outline"
@@ -144,6 +178,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               subtitle={`Delete after ${parseDays(deleteDays) ?? settings.deleteOlderThanDays} days · cache`}
               onPress={() => setPage('data')}
             />
+            </Card>
+            <View style={styles.cardGap} />
+            <Card>
+            <NavRow
+              icon="help-circle-outline"
+              title="Show intro again"
+              subtitle="Walk through topics and API key setup"
+              onPress={handleShowIntro}
+            />
+            <NavRow
+              icon="information-circle-outline"
+              title="About FeedMe"
+              onPress={() => setPage('about')}
+            />
+            </Card>
           </SettingsPage>
         )}
         {page === 'api' && (
@@ -154,14 +203,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             onModelChange={setModel}
           />
         )}
+        {page === 'topics' && (
+          <TopicsSettings selected={topicIds} limitHit={topicLimitHit} onToggle={handleToggleTopic} />
+        )}
         {page === 'feeds' && (
           <FeedsSettings
             feeds={feedList}
+            defaultFeeds={buildFeedsForTopics(topicIds)}
             onChange={setFeedList}
             articlesPerFeed={articlesPerFeed}
             onArticlesPerFeedChange={setArticlesPerFeed}
           />
         )}
+        {page === 'about' && <AboutSettings />}
         {page === 'data' && (
           <DataSettings
             onClearCache={onClearCache}
@@ -184,7 +238,7 @@ const Frame: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     <View
       style={[
         styles.container,
-        { backgroundColor: colors.background, paddingTop: insets.top, paddingBottom: insets.bottom },
+        { backgroundColor: colors.grouped, paddingTop: insets.top, paddingBottom: insets.bottom },
       ]}
     >
       <StatusBar style="auto" />
@@ -205,4 +259,5 @@ const styles = StyleSheet.create({
   side: { width: 64 },
   sideEnd: { alignItems: 'flex-end' },
   back: { marginLeft: -spacing.xs },
+  cardGap: { height: spacing.md },
 });

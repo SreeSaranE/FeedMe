@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, Animated, Easing } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, Animated, Easing, type StyleProp, type ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme, spacing, type } from '../../theme';
+import { useTheme, spacing, radius, type } from '../../theme';
 
 // Fades and lifts content in on mount; `delay` staggers siblings.
 export function FadeIn({
@@ -30,6 +30,29 @@ export function FadeIn({
     >
       {children}
     </Animated.View>
+  );
+}
+
+// A rounded surface that groups related rows; hairlines separate its children.
+export function Card({ children, style }: { children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
+  const { colors, scheme } = useTheme();
+  const items = React.Children.toArray(children);
+  return (
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: colors.card, borderColor: colors.separator },
+        scheme === 'light' && styles.cardShadow,
+        style,
+      ]}
+    >
+      {items.map((child, i) => (
+        <React.Fragment key={i}>
+          {i > 0 && <View style={[styles.cardSeparator, { backgroundColor: colors.separator }]} />}
+          {child}
+        </React.Fragment>
+      ))}
+    </View>
   );
 }
 
@@ -72,12 +95,11 @@ export function NavRow({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      style={({ pressed }) => [
-        styles.navRow,
-        { borderBottomColor: colors.separator, opacity: pressed ? 0.6 : 1 },
-      ]}
+      style={({ pressed }) => [styles.navRow, { opacity: pressed ? 0.6 : 1 }]}
     >
-      <Ionicons name={icon} size={22} color={colors.text} />
+      <View style={[styles.navIcon, { backgroundColor: colors.grouped }]}>
+        <Ionicons name={icon} size={18} color={colors.text} />
+      </View>
       <View style={styles.navText}>
         <Text style={[type.body, { color: colors.text }]}>{title}</Text>
         {subtitle ? (
@@ -97,14 +119,31 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginTop: spacing.lg,
     marginBottom: spacing.sm,
+    marginLeft: spacing.sm,
   },
-  page: { paddingHorizontal: spacing.md, paddingBottom: spacing.xl * 2 },
+  page: { paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.xl * 2 },
+  card: {
+    borderRadius: radius.md + 4,
+    borderCurve: 'continuous',
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
+  },
+  cardShadow: { boxShadow: '0 1px 3px rgba(0, 0, 0, 0.06)' },
+  cardSeparator: { height: StyleSheet.hairlineWidth, marginLeft: spacing.md },
   navRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    minHeight: 64,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    minHeight: 60,
+    paddingHorizontal: spacing.md,
+  },
+  navIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.sm,
+    borderCurve: 'continuous',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   navText: { flex: 1, gap: 2 },
 });

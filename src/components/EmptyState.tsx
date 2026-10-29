@@ -4,7 +4,9 @@ import { useTheme, spacing, radius, type } from '../theme';
 
 interface EmptyStateProps {
   isFiltering: boolean;
-  caughtUp?: boolean; // articles exist, but all have been read
+  caughtUp?: boolean; // real articles exist, but all have been read
+  needsKey?: boolean; // no API key and no real articles: syncing can't work yet
+  onOpenSettings?: () => void;
   isSyncing: boolean;
   onSync: () => void;
   onClearFilter: () => void;
@@ -13,6 +15,8 @@ interface EmptyStateProps {
 export const EmptyState: React.FC<EmptyStateProps> = ({
   isFiltering,
   caughtUp,
+  needsKey,
+  onOpenSettings,
   isSyncing,
   onSync,
   onClearFilter,
@@ -32,14 +36,24 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
     );
   }
 
-  const title = isFiltering ? 'No matches' : caughtUp ? 'All caught up' : 'No articles yet';
+  // Without a key a sync does nothing, so point to Settings instead of offering one
+  const askForKey = !isFiltering && !!needsKey && !!onOpenSettings;
+  const title = isFiltering
+    ? 'No matches'
+    : askForKey
+      ? 'Add your API key'
+      : caughtUp
+        ? 'All caught up'
+        : 'No articles yet';
   const body = isFiltering
     ? 'Nothing fits your search or filters.'
-    : caughtUp
-      ? 'You have read everything. Sync to look for new articles.'
-      : 'Fetch and summarize the latest articles from your feeds.';
-  const actionLabel = isFiltering ? 'Reset filters' : 'Sync feeds';
-  const onPress = isFiltering ? onClearFilter : onSync;
+    : askForKey
+      ? 'FeedMe needs a Gemini API key to summarize articles. Add it in Settings → API Settings.'
+      : caughtUp
+        ? 'You have read everything. Sync to look for new articles.'
+        : 'Fetch and summarize the latest articles from your feeds.';
+  const actionLabel = isFiltering ? 'Reset filters' : askForKey ? 'Open Settings' : 'Sync feeds';
+  const onPress = isFiltering ? onClearFilter : askForKey ? onOpenSettings : onSync;
 
   return (
     <View style={styles.container}>

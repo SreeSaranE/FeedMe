@@ -1,6 +1,7 @@
 import { RawFeedEntry, ArticleCategory } from '../types';
 import { fetchTextWithTimeout, NetworkError, TextResponse } from './http';
 import { UsageService } from './usage';
+import { Topic } from '../constants/topics';
 
 export interface GeminiAnalysisResult {
   isRelevant: boolean;
@@ -89,27 +90,53 @@ function toText(value: unknown): string {
   return '';
 }
 
+export type KeyCheck = 'valid' | 'invalid' | 'unreachable';
+
 export const GeminiService = {
+  // Lists the available models: a cheap call that fails for a bad key and uses no tokens
+  // or quota, so it is not recorded as usage.
+  async checkApiKey(apiKey: string): Promise<KeyCheck> {
+    try {
+      const res = await fetchTextWithTimeout(
+        'https://generativelanguage.googleapis.com/v1beta/models?pageSize=1',
+        { headers: { 'x-goog-api-key': apiKey.trim() } },
+        10000
+      );
+      if (res.ok) return 'valid';
+      const error = new GeminiApiError(res.status, res.text);
+      // A rejected key is a definite answer; anything else (5xx, 429) says nothing about the key
+      return error.fatalMessage ? 'invalid' : 'unreachable';
+    } catch {
+      return 'unreachable'; // offline or timed out
+    }
+  },
+
   async summarizeArticle(
     entry: RawFeedEntry,
     apiKey: string,
-    model = 'gemini-3.1-flash-lite'
+    model = 'gemini-3.1-flash-lite',
+    topics: Topic[] = []
   ): Promise<GeminiAnalysisResult> {
     if (!apiKey) {
       // Fallback if no API key is provided yet
       const fallbackBullet = entry.summary.slice(0, 180).trim() || entry.title;
       return {
         isRelevant: true,
-        category: 'Tech',
+        category: 'tech',
         bulletSummary: [`${fallbackBullet}...`],
         significance: 'Summarized locally without Gemini API key.'
       };
     }
 
+    const topicList = topics.map(t => `- ${t.id} (${t.label}): ${t.relevanceHint}`).join('\n');
+    const categoryChoices = topics.map(t => `"${t.id}"`).join(' or ');
+    const topicIds = topics.map(t => t.id);
+
     const truncatedContent = entry.content ? entry.content.slice(0, 6000) : entry.summary.slice(0, 3000);
 
     const prompt = `You are a senior tech curator and analyst for a high-signal developer news digest.
-Analyze this article from '${entry.sourceName}' and determine if it is genuinely relevant to AI (Artificial Intelligence, LLMs, machine learning, AI features/hardware), Open Source (FOSS, open-source projects, developer tools, libraries, open weights) OR Software Engineering (architecture, system design, infrastructure, programming languages, frameworks, DevOps, engineering practices and culture). Reject consumer gadget news, reviews, deals and general tech-industry gossip.
+Analyze this article from '${entry.sourceName}' and determine if it is genuinely relevant to at least one of these topics:
+${topicList}
 
 Article details:
 - Title: ${entry.title}
@@ -125,7 +152,7 @@ ${truncatedContent}
 Respond strictly in valid JSON with these fields:
 {
   "is_relevant": true or false,
-  "category": "AI" or "Open Source" or "Engineering" or "Both" or "Tech",   (use "Both" only for AI + Open Source)
+  "category": ${categoryChoices},   (the single best-fitting topic id)
   "bullet_summary": [
     "Key concrete takeaway 1 with specific facts",
     "Key concrete takeaway 2 with architectural or technical detail",
@@ -183,10 +210,10 @@ Do not use trailing commas in arrays or objects. Return only the JSON object.`;
 
     try {
       const parsed = cleanAndParseJson(candidateText);
-      let category: ArticleCategory = 'Tech';
-      if (parsed.category === 'AI' || parsed.category === 'Open Source' || parsed.category === 'Engineering' || parsed.category === 'Both') {
-        category = parsed.category;
-      }
+      // Anything that isn't one of the selected topics (an id, or its label) becomes the first one
+      const answer = toText(parsed.category).toLowerCase();
+      const matched = topics.find(t => t.id === answer || t.label.toLowerCase() === answer);
+      const category: ArticleCategory = matched?.id ?? topicIds[0] ?? 'tech';
 
       const bullets = (Array.isArray(parsed.bullet_summary) ? parsed.bullet_summary : [])
         .map(toText)
@@ -204,7 +231,7 @@ Do not use trailing commas in arrays or objects. Return only the JSON object.`;
       // Unparseable response: drop the article rather than adding unvetted junk
       return {
         isRelevant: false,
-        category: 'Tech',
+        category: 'tech',
         bulletSummary: [],
         significance: ''
       };

@@ -2,6 +2,7 @@ import { StorageService } from './storage';
 import { RssParserService } from './rssParser';
 import { GeminiService, GeminiApiError } from './geminiService';
 import { NetworkError } from './http';
+import { resolveTopics, keywordRegexForTopics, needsKeywordFilter } from '../constants/topics';
 import { SummarizedArticle, SyncProgress } from '../types';
 
 export const PipelineService = {
@@ -31,6 +32,8 @@ export const PipelineService = {
     }
 
     const processedIds = new Set(await StorageService.getProcessedIds());
+    const topics = resolveTopics(settings.selectedTopics);
+    const keywordRegex = keywordRegexForTopics(settings.selectedTopics);
 
     const enabledFeeds = feeds.filter(f => f.enabled);
     let articlesSummarized = 0;
@@ -94,6 +97,8 @@ export const PipelineService = {
     for (let i = 0; i < enabledFeeds.length && !quotaMessage && !fatalMessage && !offline && !wasCleared(); i++) {
       const feed = enabledFeeds[i];
       updateProgress(feed.name, i + 1, feed.name);
+      // On-topic feeds go straight to Gemini; mixed and custom feeds are keyword pre-filtered
+      const prefilter = needsKeywordFilter(feed.id) ? keywordRegex : null;
 
       try {
         const entries = await RssParserService.fetchFeedEntries(
@@ -111,7 +116,7 @@ export const PipelineService = {
           }
 
           // Check if candidate
-          const isCandidate = RssParserService.isCandidateArticle(entry);
+          const isCandidate = RssParserService.isCandidateArticle(entry, prefilter);
           if (!isCandidate) {
             processedIds.add(entryKey);
             continue;
@@ -125,7 +130,8 @@ export const PipelineService = {
             const analysis = await GeminiService.summarizeArticle(
               enriched,
               settings.geminiApiKey,
-              settings.geminiModel
+              settings.geminiModel,
+              topics
             );
 
             if (analysis.isRelevant) {

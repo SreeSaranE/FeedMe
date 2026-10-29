@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TextInput, Pressable, Alert, StyleSheet } from 'react-native';
 import { useTheme, spacing, radius, type } from '../../theme';
-import { SectionLabel, SettingsPage } from './shared';
+import { Card, SectionLabel, SettingsPage } from './shared';
 
 interface Props {
   onClearCache: () => Promise<void>;
@@ -68,12 +68,14 @@ export const DataSettings: React.FC<Props> = ({ onClearCache, days, onDaysChange
   return (
     <SettingsPage>
       <SectionLabel>Delete articles older than</SectionLabel>
+      <Card>
+      <View style={styles.body}>
       <View style={styles.row}>
         <TextInput
           style={[
             type.body,
             styles.input,
-            { backgroundColor: colors.surface, color: parsed === null ? colors.danger : colors.text },
+            { backgroundColor: colors.grouped, color: parsed === null ? colors.danger : colors.text },
           ]}
           value={days}
           onChangeText={t => onDaysChange(t.replace(/[^0-9]/g, ''))}
@@ -87,6 +89,7 @@ export const DataSettings: React.FC<Props> = ({ onClearCache, days, onDaysChange
         Uses the publish date of each article. Bookmarked articles are never deleted, and deleted
         articles are not fetched again.
       </Text>
+      </View>
       <Pressable
         onPress={confirmDeleteOlder}
         accessibilityRole="button"
@@ -94,11 +97,15 @@ export const DataSettings: React.FC<Props> = ({ onClearCache, days, onDaysChange
       >
         <Text style={[type.label, { color: colors.danger }]}>Delete older articles now</Text>
       </Pressable>
+      </Card>
 
       <SectionLabel>Storage</SectionLabel>
-      <Text style={[type.body, { color: colors.textSecondary }]}>
-        Removes all cached article summaries and bookmarks from this device.
-      </Text>
+      <Card>
+      <View style={styles.body}>
+        <Text style={[type.body, { color: colors.textSecondary }]}>
+          Removes all cached article summaries and bookmarks from this device.
+        </Text>
+      </View>
       <Pressable
         onPress={confirmClear}
         accessibilityRole="button"
@@ -106,6 +113,7 @@ export const DataSettings: React.FC<Props> = ({ onClearCache, days, onDaysChange
       >
         <Text style={[type.label, { color: colors.danger }]}>Clear cached articles</Text>
       </Pressable>
+      </Card>
     </SettingsPage>
   );
 };
@@ -121,5 +129,6 @@ const styles = StyleSheet.create({
     borderCurve: 'continuous',
   },
   hint: { marginTop: spacing.sm },
-  button: { paddingVertical: spacing.md, marginTop: spacing.sm },
+  body: { padding: spacing.md },
+  button: { height: 52, alignItems: 'center', justifyContent: 'center' },
 });

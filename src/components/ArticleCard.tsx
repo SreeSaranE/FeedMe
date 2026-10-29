@@ -5,6 +5,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { Ionicons } from '@expo/vector-icons';
 import { SummarizedArticle } from '../types';
 import { useTheme, spacing, radius, type } from '../theme';
+import { categoryLabel } from '../constants/topics';
 
 interface ArticleCardProps {
   article: SummarizedArticle;
@@ -60,7 +61,7 @@ const ArticleCardBase: React.FC<ArticleCardProps> = ({ article, onToggleBookmark
   return (
     <View style={[styles.row, { borderBottomColor: colors.separator }]}>
       <Text style={[type.caption, { color: colors.textSecondary }]} numberOfLines={1}>
-        {article.sourceName} · {article.category} · {formatPublishDate(article.published) || formatPublishDate(article.fetchedAt)}
+        {article.sourceName} · {categoryLabel(article.category)} · {formatPublishDate(article.published) || formatPublishDate(article.fetchedAt)}
       </Text>
 
       <Pressable

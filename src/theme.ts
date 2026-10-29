@@ -5,6 +5,8 @@ const palettes = {
   light: {
     background: '#FFFFFF',
     surface: '#F4F4F5', // inputs, chips
+    grouped: '#F4F4F5', // background of grouped (card) pages such as Settings
+    card: '#FFFFFF', // card surface on grouped pages
     text: '#111113',
     textSecondary: '#6B6B73',
     textTertiary: '#9A9AA2',
@@ -16,6 +18,8 @@ const palettes = {
   dark: {
     background: '#000000',
     surface: '#18181B',
+    grouped: '#000000',
+    card: '#18181B',
     text: '#F4F4F5',
     textSecondary: '#A1A1AA',
     textTertiary: '#71717A',

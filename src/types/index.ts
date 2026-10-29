@@ -18,7 +18,8 @@ export interface RawFeedEntry {
   tags?: string[];
 }
 
-export type ArticleCategory = 'AI' | 'Open Source' | 'Engineering' | 'Both' | 'Tech';
+// A topic id from constants/topics.ts (or 'tech' / 'both' for older stored articles)
+export type ArticleCategory = string;
 
 export interface SummarizedArticle {
   id: string;
@@ -33,6 +34,7 @@ export interface SummarizedArticle {
   isRelevant: boolean;
   isBookmarked?: boolean;
   isRead?: boolean;
+  isSample?: boolean; // built-in how-to card, removed once real articles arrive
   fetchedAt: string;
 }
 
@@ -42,6 +44,8 @@ export interface AppSettings {
   autoSyncOnStart: boolean;
   articlesPerFeed: number;
   deleteOlderThanDays: number;
+  selectedTopics: string[]; // topic ids from constants/topics.ts
+  onboardingCompleted: boolean;
 }
 
 export interface SyncProgress {

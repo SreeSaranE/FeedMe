@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme, spacing, radius, type } from '../theme';
 
 interface FilterBarProps {
+  categories: { id: string; label: string }[]; // topic chips; 'All' is always first
   selectedCategory: string;
   onSelectCategory: (category: string) => void;
   selectedSource: string;
@@ -13,9 +14,8 @@ interface FilterBarProps {
   onSearchChange: (text: string) => void;
 }
 
-const CATEGORIES = ['All', 'AI', 'Engineering', 'Open Source', 'Tech'];
-
 export const FilterBar: React.FC<FilterBarProps> = ({
+  categories,
   selectedCategory,
   onSelectCategory,
   selectedSource,
@@ -83,7 +83,8 @@ export const FilterBar: React.FC<FilterBarProps> = ({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.chips}
       >
-        {CATEGORIES.map(cat => chip(cat, selectedCategory === cat, () => onSelectCategory(cat)))}
+        {chip('All', selectedCategory === 'All', () => onSelectCategory('All'))}
+        {categories.map(cat => chip(cat.label, selectedCategory === cat.id, () => onSelectCategory(cat.id)))}
         {availableSources.length > 0 && (
           <View style={[styles.divider, { backgroundColor: colors.separator }]} />
         )}

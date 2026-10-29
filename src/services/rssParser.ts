@@ -1,7 +1,6 @@
 import { XMLParser } from 'fast-xml-parser';
 import { RawFeedEntry } from '../types';
 import { fetchTextWithTimeout } from './http';
-import { RELEVANCE_KEYWORDS, DEDICATED_FEEDS } from '../constants/defaultFeeds';
 
 const parser = new XMLParser({
   ignoreAttributes: false,
@@ -10,8 +9,6 @@ const parser = new XMLParser({
   trimValues: true,
   parseTagValue: false,
 });
-
-const KEYWORD_REGEX = new RegExp(RELEVANCE_KEYWORDS.join('|'), 'i');
 
 function decodeEntities(text: string): string {
   return text
@@ -255,13 +252,11 @@ export const RssParserService = {
     }
   },
 
-  isCandidateArticle(entry: RawFeedEntry): boolean {
-    // If dedicated AI feed, always true
-    if (DEDICATED_FEEDS.some(f => entry.sourceName.toLowerCase().includes(f.toLowerCase()))) {
-      return true;
-    }
-
+  // `prefilter` is null for on-topic feeds (and topics without keywords): everything is a
+  // candidate and Gemini decides. Otherwise the entry must match a keyword.
+  isCandidateArticle(entry: RawFeedEntry, prefilter: RegExp | null): boolean {
+    if (!prefilter) return true;
     const textToMatch = `${entry.title} ${entry.summary} ${(entry.tags || []).join(' ')}`;
-    return KEYWORD_REGEX.test(textToMatch);
+    return prefilter.test(textToMatch);
   }
 };

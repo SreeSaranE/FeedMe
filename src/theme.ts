@@ -1,4 +1,4 @@
-import { useColorScheme } from 'react-native';
+import { useColorScheme, Platform } from 'react-native';
 
 // Minimal system: neutral surfaces, one accent, hairline separators, no cards.
 const palettes = {
@@ -41,11 +41,59 @@ export const spacing = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 } as const;
 
 export const radius = { sm: 8, md: 12, full: 9999 } as const;
 
+// Poppins custom font definitions with platform-safe fallbacks
+export const fonts = {
+  regular: Platform.select({
+    web: "Poppins_400Regular, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    default: 'Poppins_400Regular',
+  }),
+  medium: Platform.select({
+    web: "Poppins_500Medium, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    default: 'Poppins_500Medium',
+  }),
+  semiBold: Platform.select({
+    web: "Poppins_600SemiBold, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    default: 'Poppins_600SemiBold',
+  }),
+  bold: Platform.select({
+    web: "Poppins_700Bold, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    default: 'Poppins_700Bold',
+  }),
+};
+
 export const type = {
-  title: { fontSize: 28, fontWeight: '700', letterSpacing: -0.5 },
-  headline: { fontSize: 18, fontWeight: '600', lineHeight: 24 },
-  rowTitle: { fontSize: 16, fontWeight: '600', lineHeight: 22 },
-  body: { fontSize: 15, fontWeight: '400', lineHeight: 22 },
-  label: { fontSize: 15, fontWeight: '500' },
-  caption: { fontSize: 13, fontWeight: '400' },
-} as const;
+  title: {
+    fontFamily: fonts.bold,
+    fontSize: 28,
+    fontWeight: '700' as const,
+    letterSpacing: -0.5,
+  },
+  headline: {
+    fontFamily: fonts.semiBold,
+    fontSize: 18,
+    fontWeight: '600' as const,
+    lineHeight: 24,
+  },
+  rowTitle: {
+    fontFamily: fonts.semiBold,
+    fontSize: 16,
+    fontWeight: '600' as const,
+    lineHeight: 22,
+  },
+  body: {
+    fontFamily: fonts.regular,
+    fontSize: 15,
+    fontWeight: '400' as const,
+    lineHeight: 22,
+  },
+  label: {
+    fontFamily: fonts.medium,
+    fontSize: 15,
+    fontWeight: '500' as const,
+  },
+  caption: {
+    fontFamily: fonts.regular,
+    fontSize: 13,
+    fontWeight: '400' as const,
+  },
+};

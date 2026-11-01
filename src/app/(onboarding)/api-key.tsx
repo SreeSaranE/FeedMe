@@ -84,30 +84,37 @@ export default function ApiKeyScreen() {
         placeholderTextColor={colors.textTertiary}
         value={apiKey}
         onChangeText={handleChange}
-        secureTextEntry
         autoCapitalize="none"
         autoCorrect={false}
-        spellCheck={false}
-        returnKeyType="done"
+        secureTextEntry
         accessibilityLabel="Gemini API key"
       />
+
       {error ? (
-        <Text style={[type.caption, { color: colors.danger }]} accessibilityLiveRegion="polite">
+        <Text style={[type.caption, { color: colors.danger }]} accessibilityRole="alert">
           {error}
         </Text>
       ) : null}
-      <Text style={[type.caption, { color: colors.textSecondary }]}>
-        The key is kept in the secure storage of your device and only sent to Google. Without one,
-        nothing is synced; you can add it later in Settings.
-      </Text>
     </StepShell>
   );
 }
 
 const styles = StyleSheet.create({
-  steps: { gap: spacing.md, marginTop: spacing.sm },
+  steps: { gap: spacing.md, marginVertical: spacing.sm },
   step: { flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start' },
-  number: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  number: {
+    width: 24,
+    height: 24,
+    borderRadius: radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   stepText: { flex: 1 },
-  input: { height: 48, borderRadius: radius.sm, borderCurve: 'continuous', paddingHorizontal: spacing.md },
+  input: {
+    height: 48,
+    borderRadius: radius.md,
+    borderCurve: 'continuous',
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.sm,
+  },
 });

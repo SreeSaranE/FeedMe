@@ -3,7 +3,7 @@ import { Alert, Text, View, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StepShell, PrimaryButton } from '../../features/onboarding/StepShell';
 import { useOnboarding, useGate } from '../../features/onboarding/OnboardingContext';
-import { buildFeedsForTopics, resolveTopics } from '../../constants/topics';
+import { resolveTopics } from '../../constants/topics';
 import { useTheme, spacing, radius, type } from '../../theme';
 
 export default function FinishScreen() {
@@ -13,7 +13,6 @@ export default function FinishScreen() {
   const [saving, setSaving] = useState(false);
 
   const topics = resolveTopics(selectedTopics);
-  const feedCount = buildFeedsForTopics(selectedTopics).length;
   const hasKey = apiKey.trim().length > 0;
 
   const start = async () => {
@@ -30,19 +29,32 @@ export default function FinishScreen() {
   return (
     <StepShell
       step={3}
-      title="You're all set"
-      subtitle={`${feedCount} feeds will be checked for ${topics.length} topic${topics.length === 1 ? '' : 's'}.`}
-      footer={<PrimaryButton label="Start reading" onPress={start} loading={saving} />}
+      title={
+        <Text style={[type.title, styles.title, { color: colors.text }]} accessibilityRole="header">
+          {"That's it!\nYou're good to go."}
+        </Text>
+      }
+      subtitle="Your feed is ready and waiting. Discover new stories, catch up on your favorite topics, and let FEEDME handle the lengthy reads."
+      footer={
+        <View style={styles.footerContainer}>
+          <PrimaryButton label="Take me to my feed" onPress={start} loading={saving} />
+          <Text style={[type.caption, styles.happyReading, { color: colors.textSecondary }]}>
+            Happy reading! ❤️
+          </Text>
+        </View>
+      }
     >
-      <Text style={[type.body, { color: colors.text }]}>{topics.map(t => t.label).join(' · ')}</Text>
+      <Text style={[type.body, styles.topicsList, { color: colors.textSecondary }]}>
+        {topics.map(t => t.label).join(' · ')}
+      </Text>
 
       <View style={[styles.notice, { backgroundColor: colors.surface }]}>
         <Ionicons
           name={hasKey ? 'checkmark-circle' : 'information-circle-outline'}
-          size={22}
+          size={20}
           color={hasKey ? colors.accent : colors.textSecondary}
         />
-        <Text style={[type.body, styles.noticeText, { color: colors.text }]}>
+        <Text style={[type.caption, styles.noticeText, { color: colors.text }]}>
           {hasKey
             ? 'API key saved. Your first sync starts now.'
             : 'No API key yet. Add one in Settings → API Settings to start syncing. A few tips are waiting in your feed meanwhile.'}
@@ -53,6 +65,14 @@ export default function FinishScreen() {
 }
 
 const styles = StyleSheet.create({
+  title: {
+    lineHeight: 36,
+    letterSpacing: -0.5,
+  },
+  topicsList: {
+    marginVertical: spacing.sm,
+    lineHeight: 22,
+  },
   notice: {
     flexDirection: 'row',
     gap: spacing.md,
@@ -60,7 +80,18 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderCurve: 'continuous',
     alignItems: 'flex-start',
-    marginTop: spacing.sm,
   },
-  noticeText: { flex: 1 },
+  noticeText: {
+    flex: 1,
+    lineHeight: 18,
+  },
+  footerContainer: {
+    gap: spacing.sm,
+    alignItems: 'center',
+    width: '100%',
+  },
+  happyReading: {
+    textAlign: 'center',
+    marginTop: spacing.xs,
+  },
 });

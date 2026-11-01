@@ -7,7 +7,6 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  Keyboard,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,12 +14,13 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, spacing, radius, type } from '../../theme';
 import { ProgressDots } from './ProgressDots';
+import { OnboardingIllustration } from './OnboardingIllustration';
 
-export const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 4;
 
 interface ShellProps {
   step: number; // 0-based
-  title: string;
+  title?: React.ReactNode;
   subtitle?: string;
   children: React.ReactNode;
   footer: React.ReactNode;
@@ -30,47 +30,63 @@ interface ShellProps {
 export const StepShell: React.FC<ShellProps> = ({ step, title, subtitle, children, footer }) => {
   const { colors } = useTheme();
   const router = useRouter();
+
   return (
-    <SafeAreaView
-      style={[styles.flex, { backgroundColor: colors.background }]}
-      edges={['top', 'bottom', 'left', 'right']}
-    >
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={styles.progress}>
-          <View style={styles.side}>
-            {step > 0 && (
-              <Pressable
-                onPress={() => {
-                  Keyboard.dismiss(); // a closing keyboard during the slide makes it stutter
-                  router.back();
-                }}
-                hitSlop={8}
-                accessibilityRole="button"
-                accessibilityLabel="Back"
-                style={({ pressed }) => [styles.back, { opacity: pressed ? 0.5 : 1 }]}
-              >
-                <Ionicons name="chevron-back" size={26} color={colors.accent} />
-              </Pressable>
-            )}
+    <View style={[styles.flex, { backgroundColor: colors.background }]}>
+      {/* Dynamic vector line illustration with seamless edge alignment across all device sizes */}
+      <OnboardingIllustration step={step} />
+
+      <SafeAreaView style={styles.flex} edges={['top', 'bottom', 'left', 'right']}>
+        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <View style={styles.progress}>
+            <View style={styles.side}>
+              {step > 0 && (
+                <Pressable
+                  onPress={() => {
+                    if (router.canGoBack()) {
+                      router.back();
+                    }
+                  }}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Back"
+                  style={({ pressed }) => [styles.back, { opacity: pressed ? 0.5 : 1 }]}
+                >
+                  <Ionicons name="chevron-back" size={26} color={colors.text} />
+                </Pressable>
+              )}
+            </View>
+            <ProgressDots step={step} total={TOTAL_STEPS} />
+            <View style={styles.side} />
           </View>
-          <ProgressDots step={step} total={TOTAL_STEPS} />
-          <View style={styles.side} />
-        </View>
-        <ScrollView
-          style={styles.flex}
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <Text style={[type.title, { color: colors.text }]} accessibilityRole="header">
-            {title}
-          </Text>
-          {subtitle ? <Text style={[type.body, { color: colors.textSecondary }]}>{subtitle}</Text> : null}
-          {children}
-        </ScrollView>
-        <View style={styles.footer}>{footer}</View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+
+          <ScrollView
+            style={styles.flex}
+            contentContainerStyle={styles.content}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {title ? (
+              typeof title === 'string' ? (
+                <Text style={[type.title, styles.title, { color: colors.text }]} accessibilityRole="header">
+                  {title}
+                </Text>
+              ) : (
+                title
+              )
+            ) : null}
+            {subtitle ? (
+              <Text style={[type.body, styles.subtitle, { color: colors.textSecondary }]}>
+                {subtitle}
+              </Text>
+            ) : null}
+            {children}
+          </ScrollView>
+
+          <View style={styles.footer}>{footer}</View>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </View>
   );
 };
 
@@ -79,11 +95,19 @@ interface ButtonProps {
   onPress: () => void;
   disabled?: boolean;
   loading?: boolean;
+  icon?: keyof typeof Ionicons.glyphMap;
 }
 
-export const PrimaryButton: React.FC<ButtonProps> = ({ label, onPress, disabled, loading }) => {
+export const PrimaryButton: React.FC<ButtonProps> = ({
+  label,
+  onPress,
+  disabled,
+  loading,
+  icon,
+}) => {
   const { colors } = useTheme();
   const inactive = disabled || loading;
+
   return (
     <Pressable
       onPress={onPress}
@@ -92,20 +116,29 @@ export const PrimaryButton: React.FC<ButtonProps> = ({ label, onPress, disabled,
       accessibilityState={{ disabled: !!inactive, busy: !!loading }}
       style={({ pressed }) => [
         styles.primary,
-        { backgroundColor: colors.accent, opacity: inactive ? 0.4 : pressed ? 0.8 : 1 },
+        {
+          backgroundColor: colors.text,
+          opacity: inactive ? 0.35 : pressed ? 0.85 : 1,
+        },
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={colors.onAccent} />
+        <ActivityIndicator color={colors.background} />
       ) : (
-        <Text style={[type.label, { color: colors.onAccent }]}>{label}</Text>
+        <View style={styles.buttonRow}>
+          <Text style={[type.label, styles.primaryLabel, { color: colors.background }]}>
+            {label}
+          </Text>
+          {icon ? <Ionicons name={icon} size={18} color={colors.background} /> : null}
+        </View>
       )}
     </Pressable>
   );
 };
 
-export const SecondaryButton: React.FC<ButtonProps> = ({ label, onPress, disabled }) => {
+export const SecondaryButton: React.FC<ButtonProps> = ({ label, onPress, disabled, icon }) => {
   const { colors } = useTheme();
+
   return (
     <Pressable
       onPress={onPress}
@@ -113,7 +146,10 @@ export const SecondaryButton: React.FC<ButtonProps> = ({ label, onPress, disable
       accessibilityRole="button"
       style={({ pressed }) => [styles.secondary, { opacity: disabled ? 0.4 : pressed ? 0.6 : 1 }]}
     >
-      <Text style={[type.label, { color: colors.accent }]}>{label}</Text>
+      <View style={styles.buttonRow}>
+        <Text style={[type.label, { color: colors.textSecondary, fontWeight: '500' }]}>{label}</Text>
+        {icon ? <Ionicons name={icon} size={16} color={colors.textSecondary} /> : null}
+      </View>
     </Pressable>
   );
 };
@@ -130,13 +166,36 @@ const styles = StyleSheet.create({
   side: { width: 44 },
   back: { width: 44, height: 44, justifyContent: 'center' },
   content: { padding: spacing.lg, gap: spacing.md, flexGrow: 1 },
-  footer: { paddingHorizontal: spacing.lg, paddingBottom: spacing.md, paddingTop: spacing.sm, gap: spacing.xs },
+  title: {
+    lineHeight: 34,
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    lineHeight: 22,
+  },
+  footer: { paddingHorizontal: spacing.lg, paddingBottom: spacing.md, paddingTop: spacing.sm, gap: spacing.sm },
   primary: {
     height: 52,
     borderRadius: radius.md,
     borderCurve: 'continuous',
     alignItems: 'center',
     justifyContent: 'center',
+    width: '100%',
   },
-  secondary: { height: 44, alignItems: 'center', justifyContent: 'center' },
+  primaryLabel: {
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs + 2,
+  },
+  secondary: {
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
 });

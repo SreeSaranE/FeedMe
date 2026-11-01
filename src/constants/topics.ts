@@ -253,7 +253,7 @@ for (const topic of TOPICS) {
   }
 }
 
-export const getTopic = (id: string): Topic | undefined => TOPIC_BY_ID.get(id);
+const getTopic = (id: string): Topic | undefined => TOPIC_BY_ID.get(id);
 
 // Valid topics only, in registry order. Falls back to the defaults if none are valid.
 export function resolveTopics(ids: string[]): Topic[] {
@@ -299,7 +299,7 @@ export function toggleTopicSelection(
   return { selected: [...selected, id], limitHit: false };
 }
 
-export const isRegistryFeed = (feedId: string) => REGISTRY_FEEDS.has(feedId);
+const isRegistryFeed = (feedId: string) => REGISTRY_FEEDS.has(feedId);
 
 // Mixed registry feeds and custom feeds are keyword pre-filtered; the rest go straight to Gemini.
 export const needsKeywordFilter = (feedId: string) => {

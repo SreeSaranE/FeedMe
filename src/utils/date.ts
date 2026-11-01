@@ -1,7 +1,7 @@
 import { SummarizedArticle } from '../types';
 
 // "5m ago", "3h ago", "Yesterday", "4d ago", then "Oct 14" for anything older.
-export const formatPublishDate = (dateStr: string): string => {
+const formatPublishDate = (dateStr: string): string => {
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return '';
   const minutes = Math.max(0, Math.floor((Date.now() - d.getTime()) / 60000));

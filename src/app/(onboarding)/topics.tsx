@@ -11,28 +11,34 @@ export default function TopicsScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const { selectedTopics, limitHit, toggleTopic } = useOnboarding();
+  const count = selectedTopics.length;
+  const buttonLabel = count >= 2 ? 'Sounds good, continue' : 'Continue';
 
   return (
     <StepShell
       step={1}
-      title="What do you like to read?"
-      subtitle="Pick up to 10. Your feeds are set up from these, and you can change them later."
+      title="What's caught your interest lately?"
+      subtitle="Pick the topics you enjoy reading about. We'll find interesting stories and bring them all together in your feed."
       footer={
-        <>
+        <View style={styles.footerContainer}>
           <Text
-            style={[type.caption, styles.counter, { color: limitHit ? colors.danger : colors.textSecondary }]}
+            style={[
+              type.caption,
+              styles.helperText,
+              { color: limitHit ? colors.danger : colors.textSecondary },
+            ]}
             accessibilityLiveRegion="polite"
           >
             {limitHit
               ? `You can pick up to ${MAX_TOPICS} topics. Remove one to add another.`
-              : `${selectedTopics.length}/${MAX_TOPICS} selected`}
+              : 'No worries, you can always change these later!'}
           </Text>
           <PrimaryButton
-            label="Continue"
-            disabled={selectedTopics.length === 0}
+            label={buttonLabel}
+            disabled={count === 0}
             onPress={() => router.push('/api-key')}
           />
-        </>
+        </View>
       }
     >
       <View style={styles.grid}>
@@ -50,6 +56,18 @@ export default function TopicsScreen() {
 }
 
 const styles = StyleSheet.create({
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm },
-  counter: { textAlign: 'center' },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  footerContainer: {
+    gap: spacing.sm,
+    alignItems: 'center',
+    width: '100%',
+  },
+  helperText: {
+    textAlign: 'center',
+  },
 });

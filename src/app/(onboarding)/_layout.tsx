@@ -6,9 +6,16 @@ import { OnboardingProvider, useGate } from '../../features/onboarding/Onboardin
 export default function OnboardingLayout() {
   const { initial } = useGate();
   const { colors } = useTheme();
+
   return (
     <OnboardingProvider initial={initial}>
-      <Stack screenOptions={{ headerShown: false, animation: 'fade', contentStyle: { backgroundColor: colors.background } }} />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          animation: 'slide_from_right',
+          contentStyle: { backgroundColor: colors.background },
+        }}
+      />
     </OnboardingProvider>
   );
 }

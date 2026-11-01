@@ -1,54 +1,52 @@
 import React from 'react';
 import { Text, View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
-import { Ionicons } from '@expo/vector-icons';
-import { StepShell, PrimaryButton, SecondaryButton } from '../../features/onboarding/StepShell';
+import { StepShell, PrimaryButton } from '../../features/onboarding/StepShell';
 import { useTheme, spacing, type } from '../../theme';
-
-const GITHUB_URL = 'https://github.com/SreeSaranE/FeedMe';
-
-const POINTS: { icon: React.ComponentProps<typeof Ionicons>['name']; text: string }[] = [
-  { icon: 'newspaper-outline', text: 'Reads RSS feeds for the topics you pick.' },
-  { icon: 'sparkles-outline', text: 'Google Gemini keeps what matters and writes short takeaways.' },
-  { icon: 'lock-closed-outline', text: 'No account and no server. Your key and articles stay on this device.' },
-];
 
 export default function WelcomeScreen() {
   const router = useRouter();
   const { colors } = useTheme();
 
-  const openGithub = () => WebBrowser.openBrowserAsync(GITHUB_URL).catch(() => undefined);
-
   return (
     <StepShell
       step={0}
-      title="Welcome to FeedMe"
-      subtitle="A daily digest from the feeds you choose, summarized on your device."
+      title={
+        <View style={styles.header}>
+          <Text style={[type.label, styles.brand, { color: colors.textSecondary }]}>FeedMe</Text>
+          <Text style={[type.title, styles.title, { color: colors.text }]} accessibilityRole="header">
+            A little less scrolling,{'\n'}a lot more knowing.
+          </Text>
+        </View>
+      }
+      subtitle="All your favorite reads, in one place. Discover interesting stories, catch up on what matters, and let AI do the summarizing for you."
       footer={
-        <>
-          <SecondaryButton label="View on GitHub" onPress={openGithub} />
-          <PrimaryButton label="Get started" onPress={() => router.push('/topics')} />
-        </>
+        <PrimaryButton
+          label="Let's get started"
+          onPress={() => router.push('/topics')}
+        />
       }
     >
-      <View style={styles.points}>
-        {POINTS.map(p => (
-          <View key={p.text} style={styles.point}>
-            <Ionicons name={p.icon} size={22} color={colors.textSecondary} />
-            <Text style={[type.body, styles.pointText, { color: colors.text }]}>{p.text}</Text>
-          </View>
-        ))}
-      </View>
-      <Text style={[type.caption, { color: colors.textSecondary }]}>
-        FeedMe is open source. The code is on GitHub.
-      </Text>
+      <View style={styles.spacer} />
     </StepShell>
   );
 }
 
 const styles = StyleSheet.create({
-  points: { gap: spacing.md, marginVertical: spacing.md },
-  point: { flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start' },
-  pointText: { flex: 1 },
+  header: {
+    gap: spacing.xs,
+  },
+  brand: {
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  title: {
+    lineHeight: 36,
+    letterSpacing: -0.5,
+    marginTop: spacing.xs,
+  },
+  spacer: {
+    flex: 1,
+  },
 });

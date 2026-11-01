@@ -90,17 +90,6 @@ export default function FeedScreen() {
   // returns on scroll up. `reveal` is 1 when shown, 0 when hidden.
   const [collapsibleHeight, setCollapsibleHeight] = useState(96); // estimate until measured
   const [heightMeasured, setHeightMeasured] = useState(false);
-  // True only for a sync started by pulling down, so the Android spinner stays until it ends
-  // without also showing for the startup sync or the header button (those use the header).
-  const [pulling, setPulling] = useState(false);
-  const handlePullRefresh = useCallback(async () => {
-    setPulling(true);
-    try {
-      await runSync();
-    } finally {
-      setPulling(false);
-    }
-  }, [runSync]);
   const listRef = useRef<FlatList<SummarizedArticle>>(null);
   const [reveal] = useState(() => new Animated.Value(1));
   const lastScrollY = useRef(0);
@@ -199,8 +188,8 @@ export default function FeedScreen() {
           refreshControl={
             Platform.OS !== 'ios' ? (
               <RefreshControl
-                refreshing={pulling}
-                onRefresh={handlePullRefresh}
+                refreshing={false} // navbar shows sync state; avoid a second spinner in the middle
+                onRefresh={() => runSync()}
                 progressViewOffset={collapsibleHeight}
                 tintColor={colors.textSecondary}
                 colors={[colors.accent]}

@@ -6,7 +6,7 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 import { FeedConfig, AppSettings } from '../types';
 import { AVAILABLE_MODELS } from '../constants/defaultFeeds';
 import { useTheme, spacing, type } from '../theme';
-import { Card, NavRow, SettingsPage } from './settings/shared';
+import { Card, NavRow, SwitchRow, SettingsPage } from './settings/shared';
 import { ApiSettings } from './settings/ApiSettings';
 import { FeedsSettings } from './settings/FeedsSettings';
 import { DataSettings, parseDays } from './settings/DataSettings';
@@ -56,6 +56,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [model, setModel] = useState(settings.geminiModel);
   const [articlesPerFeed, setArticlesPerFeed] = useState(settings.articlesPerFeed || 3);
   const [deleteDays, setDeleteDays] = useState(String(settings.deleteOlderThanDays || 10));
+  const [autoSync, setAutoSync] = useState(settings.autoSyncOnStart);
   const [feedList, setFeedList] = useState<FeedConfig[]>(feeds);
   const [topicIds, setTopicIds] = useState(settings.selectedTopics);
   const [topicLimitHit, setTopicLimitHit] = useState(false);
@@ -71,6 +72,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setModel(settings.geminiModel);
       setArticlesPerFeed(settings.articlesPerFeed || 3);
       setDeleteDays(String(settings.deleteOlderThanDays || 10));
+      setAutoSync(settings.autoSyncOnStart);
       setFeedList(feeds);
       setTopicIds(settings.selectedTopics);
       setTopicLimitHit(false);
@@ -83,6 +85,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       geminiApiKey: apiKey.trim(),
       geminiModel: model,
       articlesPerFeed,
+      autoSyncOnStart: autoSync,
       selectedTopics: topicIds,
       deleteOlderThanDays: parseDays(deleteDays) ?? settings.deleteOlderThanDays,
     });
@@ -177,6 +180,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               title="Data Management"
               subtitle={`Delete after ${parseDays(deleteDays) ?? settings.deleteOlderThanDays} days · cache`}
               onPress={() => setPage('data')}
+            />
+            </Card>
+            <View style={styles.cardGap} />
+            <Card>
+            <SwitchRow
+              icon="sync-outline"
+              title="Sync on launch"
+              subtitle="Fetch articles at app start"
+              value={autoSync}
+              onValueChange={setAutoSync}
             />
             </Card>
             <View style={styles.cardGap} />

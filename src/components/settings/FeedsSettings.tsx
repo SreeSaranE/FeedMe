@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { FeedConfig } from '../../types';
 import { useTheme, spacing, radius, type } from '../../theme';
 import { Card, SectionLabel, SettingsPage } from './shared';
+import { normalizeFeedUrl } from '../../utils/url';
 
 interface Props {
   feeds: FeedConfig[];
@@ -33,12 +34,13 @@ export const FeedsSettings: React.FC<Props> = ({
       Alert.alert('Missing Info', 'Please enter both feed name and feed URL.');
       return;
     }
+    const feedUrl = normalizeFeedUrl(url);
     onChange([
       ...feeds,
       {
         id: `custom-${Date.now()}`,
         name: name.trim(),
-        url: url.trim(),
+        url: feedUrl,
         enabled: true,
         category: 'Custom Feed',
       },

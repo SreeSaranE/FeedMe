@@ -136,18 +136,21 @@ export const StorageService = {
     });
   },
 
-  // Delete articles published more than `days` days ago. Bookmarked articles are
-  // kept. Their IDs stay in the processed list, so they are not fetched again.
+  // Delete articles published more than `days` days ago. Bookmarked articles and sample
+  // cards are kept. Their IDs stay in the processed list, so they are not fetched again.
   deleteArticlesOlderThan(
     days: number
   ): Promise<{ removed: number; articles: SummarizedArticle[] }> {
     return withArticlesLock(async () => {
-      const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
       const articles = await this.getArticles();
+      if (!Number.isFinite(days) || days <= 0) {
+        return { removed: 0, articles };
+      }
+      const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
       // Articles with no usable date are kept (we can't tell they are old)
       const kept = articles.filter(a => {
         const t = articleTime(a);
-        return a.isBookmarked || t === null || t >= cutoff;
+        return a.isBookmarked || a.isSample || t === null || t >= cutoff;
       });
       const removed = articles.length - kept.length;
       if (removed > 0) await this.saveArticles(kept);

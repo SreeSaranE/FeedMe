@@ -1,37 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, Animated, Easing, type StyleProp, type ViewStyle } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, Pressable, ScrollView, Switch, type StyleProp, type ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, spacing, radius, type } from '../../theme';
 
-// Fades and lifts content in on mount; `delay` staggers siblings.
-export function FadeIn({
-  children,
-  delay = 0,
-}: {
-  children: React.ReactNode;
-  delay?: number;
-}) {
-  const [progress] = useState(() => new Animated.Value(0));
-  useEffect(() => {
-    Animated.timing(progress, {
-      toValue: 1,
-      duration: 280,
-      delay,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
-  }, [progress, delay]);
-  return (
-    <Animated.View
-      style={{
-        opacity: progress,
-        transform: [{ translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }],
-      }}
-    >
-      {children}
-    </Animated.View>
-  );
-}
+import { FadeIn } from '../FadeIn';
+export { FadeIn };
 
 // A rounded surface that groups related rows; hairlines separate its children.
 export function Card({ children, style }: { children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
@@ -110,6 +83,44 @@ export function NavRow({
       </View>
       <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
     </Pressable>
+  );
+}
+
+// Row with an on/off switch, styled like NavRow.
+export function SwitchRow({
+  icon,
+  title,
+  subtitle,
+  value,
+  onValueChange,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  subtitle?: string;
+  value: boolean;
+  onValueChange: (v: boolean) => void;
+}) {
+  const { colors } = useTheme();
+  return (
+    <View style={styles.navRow}>
+      <View style={[styles.navIcon, { backgroundColor: colors.grouped }]}>
+        <Ionicons name={icon} size={18} color={colors.text} />
+      </View>
+      <View style={styles.navText}>
+        <Text style={[type.body, { color: colors.text }]}>{title}</Text>
+        {subtitle ? (
+          <Text style={[type.caption, { color: colors.textSecondary }]} numberOfLines={1}>
+            {subtitle}
+          </Text>
+        ) : null}
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onValueChange}
+        accessibilityLabel={title}
+        trackColor={{ false: colors.separator, true: colors.accent }}
+      />
+    </View>
   );
 }
 

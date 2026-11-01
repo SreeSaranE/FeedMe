@@ -9,6 +9,7 @@ export function useAppState() {
   const [articles, setArticles] = useState<SummarizedArticle[]>([]);
   const [feeds, setFeeds] = useState<FeedConfig[]>([]);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
+  const [loaded, setLoaded] = useState<boolean>(false);
 
   const [syncProgress, setSyncProgress] = useState<SyncProgress>({
     isSyncing: false,
@@ -75,6 +76,8 @@ export function useAppState() {
       }
     } catch (e) {
       console.error('Failed to load saved data', e);
+    } finally {
+      setLoaded(true);
     }
   }, [runSync]);
 
@@ -215,6 +218,7 @@ export function useAppState() {
   };
 
   return {
+    loaded,
     articles,
     feeds,
     settings,

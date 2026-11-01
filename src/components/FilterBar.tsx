@@ -26,9 +26,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({
 }) => {
   const { colors } = useTheme();
 
-  const chip = (label: string, selected: boolean, onPress: () => void) => (
+  const chip = (key: string, label: string, selected: boolean, onPress: () => void) => (
     <Pressable
-      key={label}
+      key={key}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected }}
@@ -83,14 +83,14 @@ export const FilterBar: React.FC<FilterBarProps> = ({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.chips}
       >
-        {chip('All', selectedCategory === 'All', () => onSelectCategory('All'))}
-        {categories.map(cat => chip(cat.label, selectedCategory === cat.id, () => onSelectCategory(cat.id)))}
+        {chip('all', 'All', selectedCategory === 'All', () => onSelectCategory('All'))}
+        {categories.map(cat => chip(`cat-${cat.id}`, cat.label, selectedCategory === cat.id, () => onSelectCategory(cat.id)))}
         {availableSources.length > 0 && (
           <View style={[styles.divider, { backgroundColor: colors.separator }]} />
         )}
         {availableSources.map(source => {
           const selected = selectedSource === source;
-          return chip(source, selected, () => onSelectSource(selected ? 'All' : source));
+          return chip(`src-${source}`, source, selected, () => onSelectSource(selected ? 'All' : source));
         })}
       </ScrollView>
     </View>

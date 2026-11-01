@@ -75,6 +75,9 @@ export const ApiSettings: React.FC<Props> = ({
           );
         })}
       </Card>
+      <Text style={[type.caption, styles.hint, { color: colors.textSecondary }]}>
+        If the selected model is busy or out of quota, the other one is used automatically.
+      </Text>
 
       <SectionLabel>Usage today</SectionLabel>
       <Card>

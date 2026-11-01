@@ -2,6 +2,7 @@ import { RawFeedEntry, ArticleCategory } from '../types';
 import { fetchTextWithTimeout, NetworkError, TextResponse } from './http';
 import { UsageService } from './usage';
 import { Topic } from '../constants/topics';
+import { AVAILABLE_MODELS } from '../constants/defaultFeeds';
 
 export interface GeminiAnalysisResult {
   isRelevant: boolean;
@@ -66,6 +67,48 @@ function acquireRequestSlot(): Promise<void> {
 const RETRYABLE_STATUSES = [500, 502, 503, 504];
 const MAX_ATTEMPTS = 3;
 const RETRY_BASE_DELAY_MS = 2000;
+
+// Statuses where another model may still work: overload, per-model quota (429), unknown model.
+const canFallBack = (status: number) =>
+  RETRYABLE_STATUSES.includes(status) || status === 429 || status === 404;
+
+// A model that just failed is tried last for a while, so each article doesn't wait on it again.
+const MODEL_COOLDOWN_MS = 5 * 60_000;
+const modelDownUntil = new Map<string, number>();
+
+// The selected model first, then the others; models that failed recently go to the back.
+function modelOrder(selected: string): string[] {
+  const all = [selected, ...AVAILABLE_MODELS.map(m => m.value).filter(v => v !== selected)];
+  const now = Date.now();
+  const isDown = (m: string) => (modelDownUntil.get(m) ?? 0) > now;
+  return [...all.filter(m => !isDown(m)), ...all.filter(isDown)];
+}
+
+// One model: retry transient server errors (503 overload etc.) with backoff. Every attempt
+// takes a rate-limit slot. Returns the OK response or throws GeminiApiError.
+async function requestModel(model: string, init: RequestInit, maxAttempts: number): Promise<TextResponse> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+  for (let attempt = 1; ; attempt++) {
+    await acquireRequestSlot();
+    let response: TextResponse;
+    try {
+      response = await fetchTextWithTimeout(url, init, 30000);
+    } catch (e) {
+      // A request that never reached Google (offline) is not counted as usage
+      if (!(e instanceof NetworkError)) await UsageService.record({ ok: false });
+      throw e;
+    }
+    if (response.ok) return response;
+    await UsageService.record({ ok: false });
+
+    const transient = RETRYABLE_STATUSES.includes(response.status);
+    if (!transient || attempt >= maxAttempts) {
+      console.warn(`Gemini API error (${response.status}) from ${model}:`, response.text);
+      throw new GeminiApiError(response.status, response.text);
+    }
+    await new Promise<void>(resolve => setTimeout(resolve, RETRY_BASE_DELAY_MS * 2 ** (attempt - 1)));
+  }
+}
 
 export class GeminiApiError extends Error {
   constructor(public status: number, public body = '') {
@@ -162,8 +205,6 @@ Respond strictly in valid JSON with these fields:
 }
 Do not use trailing commas in arrays or objects. Return only the JSON object.`;
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-
     const requestInit = {
       method: 'POST',
       headers: {
@@ -180,29 +221,26 @@ Do not use trailing commas in arrays or objects. Return only the JSON object.`;
       })
     };
 
-    // Retry transient server errors (503 overload etc.) with backoff. Every attempt
-    // takes a rate-limit slot. 429 and other client errors are not retried.
-    let response: TextResponse;
-    for (let attempt = 1; ; attempt++) {
-      await acquireRequestSlot();
+    // Try the selected model, then the others. A model that is overloaded, out of quota or
+    // missing is skipped and the next one answers; a bad key fails every model, so it is not
+    // retried elsewhere.
+    const models = modelOrder(model);
+    let response: TextResponse | undefined;
+    for (let i = 0; i < models.length; i++) {
+      const isLast = i === models.length - 1;
       try {
-        response = await fetchTextWithTimeout(url, requestInit, 30000);
+        // Fail over after one quick retry; only the last model gets the full backoff
+        response = await requestModel(models[i], requestInit, isLast ? MAX_ATTEMPTS : 2);
+        modelDownUntil.delete(models[i]);
+        break;
       } catch (e) {
-        // A request that never reached Google (offline) is not counted as usage
-        if (!(e instanceof NetworkError)) await UsageService.record({ ok: false });
-        throw e;
+        if (!(e instanceof GeminiApiError) || !canFallBack(e.status)) throw e;
+        modelDownUntil.set(models[i], Date.now() + MODEL_COOLDOWN_MS);
+        if (isLast) throw e;
+        console.warn(`${models[i]} unavailable (${e.status}); trying ${models[i + 1]}`);
       }
-      if (response.ok) break;
-      await UsageService.record({ ok: false });
-
-      const errText = response.text;
-      const transient = RETRYABLE_STATUSES.includes(response.status);
-      if (!transient || attempt >= MAX_ATTEMPTS) {
-        console.warn(`Gemini API error (${response.status}):`, errText);
-        throw new GeminiApiError(response.status, errText);
-      }
-      await new Promise<void>(resolve => setTimeout(resolve, RETRY_BASE_DELAY_MS * 2 ** (attempt - 1)));
     }
+    if (!response) throw new Error('No Gemini model available');
 
     const data = JSON.parse(response.text);
     await UsageService.record({ ok: true, tokens: Number(data.usageMetadata?.totalTokenCount) || 0 });

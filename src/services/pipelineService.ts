@@ -17,6 +17,16 @@ export const PipelineService = {
   }> {
     const feeds = await StorageService.getFeeds();
     const settings = await StorageService.getSettings();
+
+    // Auto-delete per the user's "delete after N days" setting. At the start of the run, so
+    // an article fetched now is never deleted before the user has seen it.
+    try {
+      const pruned = await StorageService.deleteArticlesOlderThan(settings.deleteOlderThanDays);
+      if (pruned.removed > 0) onArticles?.(pruned.articles);
+    } catch (e) {
+      console.warn('Auto-prune older articles failed:', e);
+    }
+
     if (!settings.geminiApiKey) {
       // Without a key there is no AI vetting, so don't add unvetted articles.
       const existing = await StorageService.getArticles();

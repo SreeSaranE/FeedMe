@@ -1,6 +1,9 @@
 import { XMLParser } from 'fast-xml-parser';
 import { RawFeedEntry } from '../types';
 import { fetchTextWithTimeout } from './http';
+import { normalizeFeedUrl } from '../utils/url';
+
+const USER_AGENT = 'FeedMe-Mobile/1.0 (React Native)';
 
 const parser = new XMLParser({
   ignoreAttributes: false,
@@ -9,6 +12,19 @@ const parser = new XMLParser({
   trimValues: true,
   parseTagValue: false,
 });
+
+// Common named HTML entities; feeds emit these and the XML parser only resolves the five XML ones.
+const NAMED_ENTITIES: Record<string, string> = {
+  mdash: '\u2014', ndash: '\u2013', hellip: '\u2026',
+  lsquo: '\u2018', rsquo: '\u2019', sbquo: '\u201A',
+  ldquo: '\u201C', rdquo: '\u201D', bdquo: '\u201E',
+  laquo: '\u00AB', raquo: '\u00BB', bull: '\u2022', middot: '\u00B7',
+  copy: '\u00A9', reg: '\u00AE', trade: '\u2122', deg: '\u00B0',
+  times: '\u00D7', divide: '\u00F7', plusmn: '\u00B1',
+  euro: '\u20AC', pound: '\u00A3', yen: '\u00A5', cent: '\u00A2',
+  sect: '\u00A7', para: '\u00B6', frac12: '\u00BD', rarr: '\u2192', larr: '\u2190',
+  eacute: '\u00E9', egrave: '\u00E8', uuml: '\u00FC', ouml: '\u00F6', auml: '\u00E4', ntilde: '\u00F1',
+};
 
 function decodeEntities(text: string): string {
   return text
@@ -19,6 +35,7 @@ function decodeEntities(text: string): string {
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&apos;/g, "'")
+    .replace(/&([a-zA-Z][a-zA-Z0-9]*);/g, (match, name) => NAMED_ENTITIES[name] ?? match)
     .replace(/&amp;/g, '&'); // last, so "&amp;lt;" isn't double-decoded
 }
 
@@ -67,14 +84,19 @@ function cleanHtmlText(html: unknown): string {
     .trim();
 }
 
+// Skips tiny tracking beacons and data URIs; the first <img> in a feed is often a beacon.
 function extractImageUrlFromHtml(html: string): string | undefined {
   if (!html) return undefined;
-  const match = html.match(/<img[^>]+src=["']([^"']+)["']/i);
-  if (match && match[1]) {
-    const url = match[1];
-    if (!url.includes('1x1') && !url.includes('pixel') && !url.includes('beacon')) {
-      return url;
-    }
+  const imgMatches = html.matchAll(/<img\b[^>]*>/gi);
+  for (const match of imgMatches) {
+    const tag = match[0];
+    const srcMatch = tag.match(/\bsrc=["']([^"']+)["']/i);
+    if (!srcMatch) continue;
+    const url = srcMatch[1].trim();
+    if (!url || url.startsWith('data:')) continue;
+    if (/\b(?:width|height)=["']?([0-2])["']?(?=[\s/>"'])/i.test(tag)) continue;
+    if (/(?:\b1x1\b|[/_-]pixel\.(?:gif|png)|\bbeacon\b|\/~\/i\/|feedburner\.com\/~r\/)/i.test(url)) continue;
+    return url;
   }
   return undefined;
 }
@@ -133,9 +155,9 @@ function normalizeLink(linkData: any): string {
 
 export const RssParserService = {
   async fetchFeedEntries(feedName: string, feedUrl: string, limit = 5): Promise<RawFeedEntry[]> {
-    const response = await fetchTextWithTimeout(feedUrl, {
+    const response = await fetchTextWithTimeout(normalizeFeedUrl(feedUrl), {
       headers: {
-        'User-Agent': 'FeedMe-Mobile/1.0 (React Native)',
+        'User-Agent': USER_AGENT,
         'Accept': 'application/rss+xml, application/xml, text/xml, */*'
       }
     });
@@ -228,6 +250,12 @@ export const RssParserService = {
       return entries;
     }
 
+    // A valid but empty feed has an rss/feed root and returns []. Anything else (an HTML page,
+    // RSS 1.0 / RDF) is not readable here: fail so the feed is counted as failed, not silently empty.
+    if (!jsonObj?.rss && !jsonObj?.feed) {
+      throw new Error(`${feedName} is not an RSS or Atom feed`);
+    }
+
     return entries;
   },
 
@@ -236,8 +264,15 @@ export const RssParserService = {
   async withArticleText(entry: RawFeedEntry): Promise<RawFeedEntry> {
     if ((entry.content || '').length >= 300) return entry;
     try {
-      const res = await fetchTextWithTimeout(entry.link, { headers: { Accept: 'text/html' } }, 10000);
-      if (!res.ok) return entry;
+      const res = await fetchTextWithTimeout(
+        entry.link,
+        { headers: { 'User-Agent': USER_AGENT, Accept: 'text/html' } },
+        10000
+      );
+      if (!res.ok) {
+        console.warn(`HTTP ${res.status} scraping article page: ${entry.link}`);
+        return entry;
+      }
       const html = res.text;
       const region =
         html.match(/<article[\s\S]*?<\/article>/i)?.[0] ??

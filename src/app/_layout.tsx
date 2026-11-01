@@ -55,7 +55,7 @@ export default function RootLayout() {
               from history, so back cannot return to the wizard. */}
           <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
             <Stack.Protected guard={onboarded} redirectTo="/welcome">
-              <Stack.Screen name="index" />
+              <Stack.Screen name="(app)" />
             </Stack.Protected>
             <Stack.Protected guard={!onboarded} redirectTo="/">
               <Stack.Screen name="(onboarding)" />

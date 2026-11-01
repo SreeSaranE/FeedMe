@@ -11,9 +11,10 @@ Source: https://github.com/SreeSaranE/FeedMe
 - **On-device RSS pipeline**: fetches RSS/Atom feeds directly, with a keyword pre-filter for general-interest feeds.
 - **Google Gemini analysis**: 3 concrete takeaways and a "Why it matters" callout per relevant article.
 - **Hero images**: taken from RSS enclosures, media tags or the article HTML.
-- **Offline cache**: summaries are stored with AsyncStorage for offline reading.
+- **Offline cache**: summaries are stored with AsyncStorage for offline reading; old articles are removed automatically after the configured number of days (bookmarks are kept).
 - **Read and Saved views**: mark articles as read, bookmark them, search and filter by topic or source.
-- **Customizable feeds**: add your own RSS feeds, switch feeds on or off, pick the Gemini model.
+- **Article page**: tap an article for the full summary, takeaways and why it matters; marked read after about 15 seconds on the page, with a manual read/unread control in the header.
+- **Customizable feeds**: add your own RSS feeds (a missing https:// is added for you), switch feeds on or off, pick the Gemini model.
 - **Reader**: open articles in the in-app browser or share them.
 
 ## Getting started
@@ -41,16 +42,22 @@ Optional, in `.env`:
 src/
   app/                   Expo Router routes
     _layout.tsx          root layout; guards wizard vs feed (Stack.Protected)
-    index.tsx            feed screen
+    (app)/               feed screen (index.tsx) and article page (article/[id].tsx)
     (onboarding)/        welcome, topics, api-key, finish
-  features/onboarding/   wizard state (reducer) and shared step components
+  features/
+    articles/            shared state provider (AppStateContext.tsx)
+    onboarding/          wizard state (reducer) and shared step components
   hooks/useAppState.ts   articles, feeds, settings, sync and filters
   constants/
     topics.ts            topic registry: feeds, Gemini hints, keywords, helpers
     defaultFeeds.ts      default feed version, retired feeds, model list
     sampleArticles.ts    how-to cards shown when no key was entered
+    reading.ts           reading dwell time constant (15s auto-read)
   services/              rssParser, geminiService, pipelineService, storage, usage, http
-  components/            feed UI and Settings pages
+  components/
+    article/             article detail page components (header, actions, footer, etc.)
+    settings/            settings tabs and shared components
+    FadeIn.tsx           reusable fade-and-lift entrance transition
 ```
 
 To add a topic, add an entry to `TOPICS` in `src/constants/topics.ts` (id, label, icon, relevance hint, feeds). The wizard, Settings, the Gemini prompt and the filter chips pick it up.

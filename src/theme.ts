@@ -44,6 +44,7 @@ export const radius = { sm: 8, md: 12, full: 9999 } as const;
 export const type = {
   title: { fontSize: 28, fontWeight: '700', letterSpacing: -0.5 },
   headline: { fontSize: 18, fontWeight: '600', lineHeight: 24 },
+  rowTitle: { fontSize: 16, fontWeight: '600', lineHeight: 22 },
   body: { fontSize: 15, fontWeight: '400', lineHeight: 22 },
   label: { fontSize: 15, fontWeight: '500' },
   caption: { fontSize: 13, fontWeight: '400' },

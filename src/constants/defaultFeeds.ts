@@ -13,6 +13,6 @@ export const REMOVED_DEFAULT_FEED_IDS = ['android-police', 'engadget', 'ness-lab
 export const DEFAULT_FEEDS: FeedConfig[] = buildFeedsForTopics(DEFAULT_TOPIC_IDS);
 
 export const AVAILABLE_MODELS = [
-  { label: 'Gemini 3.1 Flash Lite (Recommended)', value: 'gemini-3.1-flash-lite' },
+  { label: 'Gemini 3.1 Flash Lite', value: 'gemini-3.1-flash-lite' },
   { label: 'Gemini 3.5 Flash Lite', value: 'gemini-3.5-flash-lite' },
 ];

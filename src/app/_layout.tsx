@@ -4,13 +4,12 @@ import { Stack, ThemeProvider, DarkTheme, DefaultTheme } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
-import {
-  useFonts,
-  Poppins_400Regular,
-  Poppins_500Medium,
-  Poppins_600SemiBold,
-  Poppins_700Bold,
-} from '@expo-google-fonts/poppins';
+import { useFonts } from '@expo-google-fonts/poppins/useFonts';
+// One import per weight: the package root pulls in all 18 Poppins files, we ship only these 4
+import { Poppins_400Regular } from '@expo-google-fonts/poppins/400Regular';
+import { Poppins_500Medium } from '@expo-google-fonts/poppins/500Medium';
+import { Poppins_600SemiBold } from '@expo-google-fonts/poppins/600SemiBold';
+import { Poppins_700Bold } from '@expo-google-fonts/poppins/700Bold';
 import { StorageService } from '../services/storage';
 import { GateProvider, OnboardingInitial } from '../features/onboarding/OnboardingContext';
 import { useTheme } from '../theme';

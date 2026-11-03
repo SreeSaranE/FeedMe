@@ -7,7 +7,7 @@ Source: https://github.com/SreeSaranE/FeedMe
 ## Features
 
 - **First-run setup**: a short intro, topic selection (up to 10 of 16, e.g. AI, Health, Sports, Finance), and a guide to getting a free Gemini API key. The key step can be skipped.
-- **Topic-driven feeds**: the default feeds, the Gemini relevance prompt and the filter chips all follow the topics you picked. Change them any time in Settings → Topics.
+- **Topic-driven feeds**: the default feeds, the Gemini relevance prompt and the filter chips all follow the topics you picked; each picked topic starts with 5 feeds enabled and the others are available (switched off) under Settings → Feeds. Change them any time in Settings → Topics.
 - **On-device RSS pipeline**: fetches RSS/Atom feeds directly, with a keyword pre-filter for general-interest feeds.
 - **Google Gemini analysis**: 3 concrete takeaways and a "Why it matters" callout per relevant article.
 - **Hero images**: taken from RSS enclosures, media tags or the article HTML.
@@ -46,7 +46,7 @@ src/
     (onboarding)/        welcome, topics, api-key, finish
   features/
     articles/            shared state provider (AppStateContext.tsx)
-    onboarding/          wizard state (reducer) and shared step components
+    onboarding/          wizard state (reducer) and shared step components; one fixed top bar (OnboardingTopBar) shared by all steps
   hooks/useAppState.ts   articles, feeds, settings, sync and filters
   constants/
     topics.ts            topic registry: feeds, Gemini hints, keywords, helpers

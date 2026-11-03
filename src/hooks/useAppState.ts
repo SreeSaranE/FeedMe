@@ -209,6 +209,10 @@ export function useAppState() {
     activeSource !== 'All' ||
     searchQuery.trim().length > 0;
 
+  // The Read or Saved view has no articles at all (not just none matching a search or chip)
+  const emptyView: 'read' | 'saved' | null =
+    viewArticles.length > 0 ? null : showReadOnly ? 'read' : showBookmarksOnly ? 'saved' : null;
+
   const resetFilters = () => {
     setShowBookmarksOnly(false);
     setShowReadOnly(false);
@@ -248,6 +252,7 @@ export function useAppState() {
     onlySamples,
     needsKey,
     isFilteringActive,
+    emptyView,
     resetFilters,
   };
 }

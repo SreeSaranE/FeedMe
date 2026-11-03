@@ -1,7 +1,9 @@
 import React from 'react';
+import { View } from 'react-native';
 import { Stack } from 'expo-router';
 import { useTheme } from '../../theme';
 import { OnboardingProvider, useGate } from '../../features/onboarding/OnboardingContext';
+import { OnboardingTopBar } from '../../features/onboarding/OnboardingTopBar';
 
 export default function OnboardingLayout() {
   const { initial } = useGate();
@@ -9,13 +11,16 @@ export default function OnboardingLayout() {
 
   return (
     <OnboardingProvider initial={initial}>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          animation: 'slide_from_right',
-          contentStyle: { backgroundColor: colors.background },
-        }}
-      />
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            animation: 'slide_from_right',
+            contentStyle: { backgroundColor: colors.background },
+          }}
+        />
+        <OnboardingTopBar />
+      </View>
     </OnboardingProvider>
   );
 }

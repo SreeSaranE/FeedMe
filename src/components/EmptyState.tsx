@@ -4,6 +4,7 @@ import { useTheme, spacing, radius, type } from '../theme';
 
 interface EmptyStateProps {
   isFiltering: boolean;
+  emptyView?: 'read' | 'saved' | null; // the Read or Saved view has nothing in it at all
   caughtUp?: boolean; // real articles exist, but all have been read
   needsKey?: boolean; // no API key and no real articles: syncing can't work yet
   onOpenSettings?: () => void;
@@ -14,6 +15,7 @@ interface EmptyStateProps {
 
 export const EmptyState: React.FC<EmptyStateProps> = ({
   isFiltering,
+  emptyView,
   caughtUp,
   needsKey,
   onOpenSettings,
@@ -22,6 +24,33 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   onClearFilter,
 }) => {
   const { colors } = useTheme();
+
+  // An empty Read or Saved view says what it is for, instead of "No matches"
+  if (emptyView) {
+    const isRead = emptyView === 'read';
+    return (
+      <View style={styles.container}>
+        <Text style={[type.headline, { color: colors.text }]}>
+          {isRead ? 'No viewed articles yet' : 'No bookmarks yet'}
+        </Text>
+        <Text style={[type.body, styles.body, { color: colors.textSecondary }]}>
+          {isRead
+            ? 'Articles you have read, or marked as read, will show up here.'
+            : 'Tap the bookmark icon on an article to save it here for later.'}
+        </Text>
+        <Pressable
+          onPress={onClearFilter}
+          accessibilityRole="button"
+          style={({ pressed }) => [
+            styles.button,
+            { backgroundColor: colors.accent, opacity: pressed ? 0.7 : 1 },
+          ]}
+        >
+          <Text style={[type.label, { color: colors.onAccent }]}>Back to your feed</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   // First launch: the automatic sync is already running, so show progress, not a button.
   if (!isFiltering && isSyncing) {

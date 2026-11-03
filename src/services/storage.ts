@@ -13,6 +13,7 @@ import {
   TOPICS,
   applyTopicsToFeeds,
   normalizeCategory,
+  withRegistryUrls,
 } from '../constants/topics';
 import { buildSampleArticles } from '../constants/sampleArticles';
 
@@ -248,7 +249,10 @@ export const StorageService = {
           [KEYS.FEEDS_VERSION, String(DEFAULT_FEEDS_VERSION)],
         ]);
       }
-      return feeds;
+      // Pick up corrected feed URLs from the registry (and store them once)
+      const current = withRegistryUrls(feeds);
+      if (current !== feeds) await this.saveFeeds(current);
+      return current;
     } catch {
       return DEFAULT_FEEDS;
     }

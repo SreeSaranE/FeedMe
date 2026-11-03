@@ -35,7 +35,7 @@ export default function ApiKeyScreen() {
     const result = await GeminiService.checkApiKey(apiKey);
     setChecking(false);
     if (result === 'valid') router.push('/finish');
-    else if (result === 'invalid') setError('Google rejected this key. Check that you copied all of it.');
+    else if (result === 'invalid') setError('Google rejected this key.\nCheck that you copied all of it.');
     else setError("Couldn't reach Google to check the key. Check your connection and try again, or skip for now.");
   };
 
@@ -76,7 +76,7 @@ export default function ApiKeyScreen() {
         ))}
       </View>
 
-      <SecondaryButton label="Open Google AI Studio" onPress={openStudio} />
+      <SecondaryButton label="Open Google AI Studio ↗" onPress={openStudio} />
 
       <TextInput
         style={[type.body, styles.input, { backgroundColor: colors.surface, color: colors.text }]}

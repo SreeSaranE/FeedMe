@@ -9,14 +9,11 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTheme, spacing, radius, type } from '../../theme';
-import { ProgressDots } from './ProgressDots';
 import { OnboardingIllustration } from './OnboardingIllustration';
-
-const TOTAL_STEPS = 4;
+import { BAR_HEIGHT } from './steps';
 
 interface ShellProps {
   step: number; // 0-based
@@ -26,40 +23,22 @@ interface ShellProps {
   footer: React.ReactNode;
 }
 
-// Common frame of every wizard step: progress, title, scrolling content, pinned actions.
+// Common frame of every wizard step: illustration, title, scrolling content, pinned actions.
+// The top bar (back chevron + progress dots) is rendered by the parent layout overlay.
 export const StepShell: React.FC<ShellProps> = ({ step, title, subtitle, children, footer }) => {
   const { colors } = useTheme();
-  const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   return (
     <View style={[styles.flex, { backgroundColor: colors.background }]}>
       {/* Dynamic vector line illustration with seamless edge alignment across all device sizes */}
       <OnboardingIllustration step={step} />
 
-      <SafeAreaView style={styles.flex} edges={['top', 'bottom', 'left', 'right']}>
-        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <View style={styles.progress}>
-            <View style={styles.side}>
-              {step > 0 && (
-                <Pressable
-                  onPress={() => {
-                    if (router.canGoBack()) {
-                      router.back();
-                    }
-                  }}
-                  hitSlop={8}
-                  accessibilityRole="button"
-                  accessibilityLabel="Back"
-                  style={({ pressed }) => [styles.back, { opacity: pressed ? 0.5 : 1 }]}
-                >
-                  <Ionicons name="chevron-back" size={26} color={colors.text} />
-                </Pressable>
-              )}
-            </View>
-            <ProgressDots step={step} total={TOTAL_STEPS} />
-            <View style={styles.side} />
-          </View>
-
+      <SafeAreaView style={styles.flex} edges={['bottom', 'left', 'right']}>
+        <KeyboardAvoidingView
+          style={[styles.flex, { paddingTop: insets.top + BAR_HEIGHT }]}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
           <ScrollView
             style={styles.flex}
             contentContainerStyle={styles.content}
@@ -156,15 +135,6 @@ export const SecondaryButton: React.FC<ButtonProps> = ({ label, onPress, disable
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  progress: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    height: 48,
-    paddingHorizontal: spacing.md,
-  },
-  side: { width: 44 },
-  back: { width: 44, height: 44, justifyContent: 'center' },
   content: { padding: spacing.lg, gap: spacing.md, flexGrow: 1 },
   title: {
     lineHeight: 34,

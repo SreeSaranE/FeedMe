@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Alert, Text, View, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { StepShell, PrimaryButton } from '../../features/onboarding/StepShell';
 import { useOnboarding, useGate } from '../../features/onboarding/OnboardingContext';
 import { resolveTopics } from '../../constants/topics';
@@ -37,10 +37,10 @@ export default function FinishScreen() {
       subtitle="Your feed is ready and waiting. Discover new stories, catch up on your favorite topics, and let FEEDME handle the lengthy reads."
       footer={
         <View style={styles.footerContainer}>
-          <PrimaryButton label="Take me to my feed" onPress={start} loading={saving} />
           <Text style={[type.caption, styles.happyReading, { color: colors.textSecondary }]}>
             Happy reading! ❤️
           </Text>
+          <PrimaryButton label="Take me to my feed" onPress={start} loading={saving} />
         </View>
       }
     >

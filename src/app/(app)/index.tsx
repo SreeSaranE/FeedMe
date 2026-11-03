@@ -58,6 +58,7 @@ export default function FeedScreen() {
     onlySamples,
     needsKey,
     isFilteringActive,
+    emptyView,
     resetFilters,
   } = useApp();
 
@@ -202,6 +203,7 @@ export default function FeedScreen() {
             loaded ? (
               <EmptyState
                 isFiltering={isFilteringActive}
+                emptyView={emptyView}
                 caughtUp={hasRealArticles}
                 needsKey={needsKey}
                 onOpenSettings={() => setIsSettingsOpen(true)}

@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import type Ionicons from '@expo/vector-icons/Ionicons';
 import { FeedConfig, SummarizedArticle } from '../types';
 
 export type IconName = keyof typeof Ionicons.glyphMap;
@@ -10,6 +10,8 @@ export interface TopicFeed {
   // General-interest feed: its entries are keyword pre-filtered before Gemini sees them.
   // Feeds that are on-topic by nature skip the pre-filter (Gemini still decides relevance).
   mixed?: boolean;
+  // Starts enabled when the topic is picked; max 5 per topic; never on a feed shared by several topics.
+  default?: boolean;
 }
 
 export interface Topic {
@@ -24,6 +26,7 @@ export interface Topic {
 }
 
 export const MAX_TOPICS = 10;
+export const DEFAULT_FEEDS_PER_TOPIC = 5;
 
 const REJECT_GADGETS = 'Reject consumer gadget news, reviews, deals and general tech-industry gossip.';
 
@@ -43,15 +46,15 @@ export const TOPICS: Topic[] = [
       '\\bmultimodal\\b', '\\bcuda\\b', '\\bnvidia ai\\b',
     ],
     feeds: [
-      { id: 'google-blog-ai', name: 'Google Blog (AI)', url: 'https://blog.google/technology/ai/rss/' },
-      { id: 'deepmind', name: 'Google DeepMind', url: 'https://raw.githubusercontent.com/leontloveless/ai-rss-feeds/main/feeds/deepmind-blog.xml' },
+      { id: 'google-blog-ai', name: 'Google Blog (AI)', url: 'https://blog.google/technology/ai/rss/', default: true },
+      { id: 'deepmind', name: 'Google DeepMind', url: 'https://deepmind.google/blog/rss.xml' },
       { id: 'mit-news-ai', name: 'MIT News - AI', url: 'https://news.mit.edu/rss/topic/artificial-intelligence2' },
       { id: 'nvidia-tech-blog', name: 'NVIDIA Technical Blog', url: 'https://developer.nvidia.com/blog/feed/', mixed: true },
-      { id: 'openai-news', name: 'OpenAI News & Engineering', url: 'https://openai.com/news/rss.xml' },
-      { id: 'huggingface-blog', name: 'Hugging Face Blog', url: 'https://huggingface.co/blog/feed.xml' },
+      { id: 'openai-news', name: 'OpenAI News & Engineering', url: 'https://openai.com/news/rss.xml', default: true },
+      { id: 'huggingface-blog', name: 'Hugging Face Blog', url: 'https://huggingface.co/blog/feed.xml', default: true },
       { id: 'simon-willison', name: 'Simon Willison', url: 'https://simonwillison.net/atom/everything/', mixed: true },
-      { id: 'techcrunch-ai', name: 'TechCrunch AI', url: 'https://techcrunch.com/category/artificial-intelligence/feed/' },
-      { id: 'ars-ai', name: 'Ars Technica AI', url: 'https://arstechnica.com/ai/feed/' },
+      { id: 'techcrunch-ai', name: 'TechCrunch AI', url: 'https://techcrunch.com/category/artificial-intelligence/feed/', default: true },
+      { id: 'ars-ai', name: 'Ars Technica AI', url: 'https://arstechnica.com/ai/feed/', default: true },
       { id: 'aws-ml', name: 'AWS Machine Learning Blog', url: 'https://aws.amazon.com/blogs/machine-learning/feed/' },
       { id: 'import-ai', name: 'Import AI', url: 'https://importai.substack.com/feed' },
     ],
@@ -67,13 +70,13 @@ export const TOPICS: Topic[] = [
       '\\bapi\\b', '\\bdeveloper\\b', '\\bprogramming\\b', '\\bcompiler\\b',
     ],
     feeds: [
-      { id: 'cloudflare-blog', name: 'Cloudflare Blog', url: 'https://blog.cloudflare.com/rss/' },
-      { id: 'pragmatic-engineer', name: 'The Pragmatic Engineer', url: 'https://blog.pragmaticengineer.com/rss/' },
+      { id: 'cloudflare-blog', name: 'Cloudflare Blog', url: 'https://blog.cloudflare.com/rss/', default: true },
+      { id: 'pragmatic-engineer', name: 'The Pragmatic Engineer', url: 'https://blog.pragmaticengineer.com/rss/', default: true },
       { id: 'hacker-news', name: 'Hacker News', url: 'https://hnrss.org/frontpage', mixed: true },
-      { id: 'infoq', name: 'InfoQ', url: 'https://feed.infoq.com/' },
+      { id: 'infoq', name: 'InfoQ', url: 'https://feed.infoq.com/', default: true },
       { id: 'martin-fowler', name: 'Martin Fowler', url: 'https://martinfowler.com/feed.atom' },
-      { id: 'netflix-tech', name: 'Netflix Tech Blog', url: 'https://netflixtechblog.com/feed' },
-      { id: 'stack-overflow-blog', name: 'Stack Overflow Blog', url: 'https://stackoverflow.blog/feed/' },
+      { id: 'netflix-tech', name: 'Netflix Tech Blog', url: 'https://netflixtechblog.com/feed', default: true },
+      { id: 'stack-overflow-blog', name: 'Stack Overflow Blog', url: 'https://stackoverflow.blog/feed/', default: true },
       { id: 'github-blog', name: 'GitHub Blog', url: 'https://github.blog/feed/', mixed: true },
       { id: 'bytebytego', name: 'ByteByteGo', url: 'https://blog.bytebytego.com/feed' },
     ],
@@ -88,12 +91,12 @@ export const TOPICS: Topic[] = [
       '\\bgithub\\b', '\\bgit\\b',
     ],
     feeds: [
-      { id: 'github-open-source', name: 'GitHub Blog (Open Source)', url: 'https://github.blog/open-source/feed/' },
-      { id: 'lwn', name: 'LWN.net', url: 'https://lwn.net/headlines/rss' },
-      { id: 'its-foss', name: "It's FOSS", url: 'https://itsfoss.com/feed/' },
-      { id: 'linux-foundation', name: 'Linux Foundation', url: 'https://www.linuxfoundation.org/blog/rss.xml' },
+      { id: 'github-open-source', name: 'GitHub Blog (Open Source)', url: 'https://github.blog/open-source/feed/', default: true },
+      { id: 'lwn', name: 'LWN.net', url: 'https://lwn.net/headlines/rss', default: true },
+      { id: 'its-foss', name: "It's FOSS", url: 'https://itsfoss.com/feed/', default: true },
+      { id: 'linux-foundation', name: 'Linux Foundation', url: 'https://www.linuxfoundation.org/blog/rss.xml', default: true },
       { id: 'the-new-stack', name: 'The New Stack', url: 'https://thenewstack.io/feed/', mixed: true },
-      { id: 'openssf', name: 'OpenSSF Blog', url: 'https://openssf.org/feed/' },
+      { id: 'openssf', name: 'OpenSSF Blog', url: 'https://openssf.org/feed/', default: true },
     ],
   },
   {
@@ -102,9 +105,11 @@ export const TOPICS: Topic[] = [
     icon: 'shield-checkmark',
     relevanceHint: 'Cybersecurity: vulnerabilities, breaches, malware, privacy, security research and practice.',
     feeds: [
-      { id: 'krebs-on-security', name: 'Krebs on Security', url: 'https://krebsonsecurity.com/feed/' },
-      { id: 'bleepingcomputer', name: 'BleepingComputer', url: 'https://www.bleepingcomputer.com/feed/' },
-      { id: 'the-hacker-news', name: 'The Hacker News', url: 'https://feeds.feedburner.com/TheHackersNews' },
+      { id: 'krebs-on-security', name: 'Krebs on Security', url: 'https://krebsonsecurity.com/feed/', default: true },
+      { id: 'bleepingcomputer', name: 'BleepingComputer', url: 'https://www.bleepingcomputer.com/feed/', default: true },
+      { id: 'the-hacker-news', name: 'The Hacker News', url: 'https://feeds.feedburner.com/TheHackersNews', default: true },
+      { id: 'schneier', name: 'Schneier on Security', url: 'https://www.schneier.com/feed/atom/', default: true },
+      { id: 'ars-security', name: 'Ars Technica Security', url: 'https://arstechnica.com/security/feed/', default: true },
     ],
   },
   {
@@ -113,8 +118,12 @@ export const TOPICS: Topic[] = [
     icon: 'rocket',
     relevanceHint: 'Startups: funding rounds, launches, founders, product strategy and venture capital.',
     feeds: [
-      { id: 'techcrunch-startups', name: 'TechCrunch Startups', url: 'https://techcrunch.com/category/startups/feed/' },
+      { id: 'techcrunch-startups', name: 'TechCrunch Startups', url: 'https://techcrunch.com/category/startups/feed/', default: true },
       { id: 'hacker-news', name: 'Hacker News', url: 'https://hnrss.org/frontpage', mixed: true },
+      { id: 'crunchbase-news', name: 'Crunchbase News', url: 'https://news.crunchbase.com/feed/', default: true },
+      { id: 'product-hunt', name: 'Product Hunt', url: 'https://www.producthunt.com/feed', default: true },
+      { id: 'techcrunch-venture', name: 'TechCrunch Venture', url: 'https://techcrunch.com/category/venture/feed/', default: true },
+      { id: 'y-combinator', name: 'Y Combinator Blog', url: 'https://www.ycombinator.com/blog/feed', default: true },
     ],
   },
   {
@@ -123,9 +132,11 @@ export const TOPICS: Topic[] = [
     icon: 'flask',
     relevanceHint: 'Science: research findings, discoveries and breakthroughs in physics, biology, chemistry, mathematics and technology.',
     feeds: [
-      { id: 'sciencedaily', name: 'ScienceDaily', url: 'https://www.sciencedaily.com/rss/all.xml' },
-      { id: 'quanta', name: 'Quanta Magazine', url: 'https://www.quantamagazine.org/feed/' },
-      { id: 'nasa-news', name: 'NASA', url: 'https://www.nasa.gov/feed/' },
+      { id: 'sciencedaily', name: 'ScienceDaily', url: 'https://www.sciencedaily.com/rss/all.xml', default: true },
+      { id: 'quanta', name: 'Quanta Magazine', url: 'https://www.quantamagazine.org/feed/', default: true },
+      { id: 'nasa-news', name: 'NASA', url: 'https://www.nasa.gov/feed/', default: true },
+      { id: 'science-news', name: 'Science News', url: 'https://www.sciencenews.org/feed', default: true },
+      { id: 'phys-org', name: 'Phys.org', url: 'https://phys.org/rss-feed/', default: true },
     ],
   },
   {
@@ -134,8 +145,11 @@ export const TOPICS: Topic[] = [
     icon: 'planet',
     relevanceHint: 'Space: missions, launches, astronomy, astrophysics and the space industry.',
     feeds: [
-      { id: 'space-com', name: 'Space.com', url: 'https://www.space.com/feeds/all' },
-      { id: 'nasa-releases', name: 'NASA News Releases', url: 'https://www.nasa.gov/news-release/feed/' },
+      { id: 'space-com', name: 'Space.com', url: 'https://www.space.com/feeds/all', default: true },
+      { id: 'nasa-releases', name: 'NASA News Releases', url: 'https://www.nasa.gov/news-release/feed/', default: true },
+      { id: 'spacenews', name: 'SpaceNews', url: 'https://spacenews.com/feed/', default: true },
+      { id: 'universe-today', name: 'Universe Today', url: 'https://www.universetoday.com/feed', default: true },
+      { id: 'ars-space', name: 'Ars Technica Space', url: 'https://arstechnica.com/space/feed/', default: true },
     ],
   },
   {
@@ -144,10 +158,11 @@ export const TOPICS: Topic[] = [
     icon: 'medkit',
     relevanceHint: 'Health: medical research, public health, medicine, nutrition and mental health. Reject ads and unsupported wellness claims.',
     feeds: [
-      { id: 'stat-news', name: 'STAT News', url: 'https://www.statnews.com/feed/' },
-      { id: 'sciencedaily-health', name: 'ScienceDaily Health', url: 'https://www.sciencedaily.com/rss/health_medicine.xml' },
-      { id: 'sciencedaily-mind', name: 'ScienceDaily Mind & Brain', url: 'https://www.sciencedaily.com/rss/mind_brain.xml' },
-      { id: 'npr-health', name: 'NPR Health', url: 'https://feeds.npr.org/1128/rss.xml' },
+      { id: 'stat-news', name: 'STAT News', url: 'https://www.statnews.com/feed/', default: true },
+      { id: 'sciencedaily-health', name: 'ScienceDaily Health', url: 'https://www.sciencedaily.com/rss/health_medicine.xml', default: true },
+      { id: 'sciencedaily-mind', name: 'ScienceDaily Mind & Brain', url: 'https://www.sciencedaily.com/rss/mind_brain.xml', default: true },
+      { id: 'npr-health', name: 'NPR Health', url: 'https://feeds.npr.org/1128/rss.xml', default: true },
+      { id: 'who-news', name: 'WHO News', url: 'https://www.who.int/rss-feeds/news-english.xml', default: true },
     ],
   },
   {
@@ -156,8 +171,11 @@ export const TOPICS: Topic[] = [
     icon: 'barbell',
     relevanceHint: 'Fitness: exercise, training, sports science, nutrition for performance and healthy habits. Reject product promotions.',
     feeds: [
-      { id: 'mens-health', name: "Men's Health", url: 'https://www.menshealth.com/rss/all.xml/' },
-      { id: 'self', name: 'SELF', url: 'https://www.self.com/feed/rss' },
+      { id: 'mens-health', name: "Men's Health", url: 'https://www.menshealth.com/rss/all.xml/', default: true },
+      { id: 'self', name: 'SELF', url: 'https://www.self.com/feed/rss', default: true },
+      { id: 'runners-world', name: "Runner's World", url: 'https://www.runnersworld.com/rss/all.xml/', default: true },
+      { id: 'muscle-and-fitness', name: 'Muscle & Fitness', url: 'https://www.muscleandfitness.com/feed/', default: true },
+      { id: 'guardian-fitness', name: 'The Guardian Fitness', url: 'https://www.theguardian.com/lifeandstyle/fitness/rss', default: true },
     ],
   },
   {
@@ -166,10 +184,11 @@ export const TOPICS: Topic[] = [
     icon: 'football',
     relevanceHint: 'Sports: results, match reports, transfers, tournaments, athletes and league news.',
     feeds: [
-      { id: 'bbc-sport', name: 'BBC Sport', url: 'https://feeds.bbci.co.uk/sport/rss.xml' },
-      { id: 'guardian-sport', name: 'The Guardian Sport', url: 'https://www.theguardian.com/sport/rss' },
-      { id: 'cbs-sports', name: 'CBS Sports', url: 'https://www.cbssports.com/rss/headlines/' },
-      { id: 'espn', name: 'ESPN', url: 'https://www.espn.com/espn/rss/news' },
+      { id: 'bbc-sport', name: 'BBC Sport', url: 'https://feeds.bbci.co.uk/sport/rss.xml', default: true },
+      { id: 'guardian-sport', name: 'The Guardian Sport', url: 'https://www.theguardian.com/sport/rss', default: true },
+      { id: 'cbs-sports', name: 'CBS Sports', url: 'https://www.cbssports.com/rss/headlines/', default: true },
+      { id: 'espn', name: 'ESPN', url: 'https://www.espn.com/espn/rss/news', default: true },
+      { id: 'sky-sports', name: 'Sky Sports', url: 'https://www.skysports.com/rss/12040', default: true },
     ],
   },
   {
@@ -178,9 +197,11 @@ export const TOPICS: Topic[] = [
     icon: 'briefcase',
     relevanceHint: 'Business: companies, industries, economy, management and corporate strategy.',
     feeds: [
-      { id: 'bbc-business', name: 'BBC Business', url: 'https://feeds.bbci.co.uk/news/business/rss.xml' },
-      { id: 'guardian-business', name: 'The Guardian Business', url: 'https://www.theguardian.com/uk/business/rss' },
-      { id: 'npr-business', name: 'NPR Business', url: 'https://feeds.npr.org/1006/rss.xml' },
+      { id: 'bbc-business', name: 'BBC Business', url: 'https://feeds.bbci.co.uk/news/business/rss.xml', default: true },
+      { id: 'guardian-business', name: 'The Guardian Business', url: 'https://www.theguardian.com/uk/business/rss', default: true },
+      { id: 'npr-business', name: 'NPR Business', url: 'https://feeds.npr.org/1006/rss.xml', default: true },
+      { id: 'fast-company', name: 'Fast Company', url: 'https://www.fastcompany.com/latest/rss', default: true },
+      { id: 'forbes-business', name: 'Forbes Business', url: 'https://www.forbes.com/business/feed/', default: true },
     ],
   },
   {
@@ -189,8 +210,11 @@ export const TOPICS: Topic[] = [
     icon: 'trending-up',
     relevanceHint: 'Finance: markets, investing, central banks, personal finance and economic data.',
     feeds: [
-      { id: 'cnbc', name: 'CNBC', url: 'https://www.cnbc.com/id/10000664/device/rss/rss.html' },
-      { id: 'marketwatch', name: 'MarketWatch', url: 'https://feeds.marketwatch.com/marketwatch/topstories/' },
+      { id: 'cnbc', name: 'CNBC', url: 'https://www.cnbc.com/id/10000664/device/rss/rss.html', default: true },
+      { id: 'marketwatch', name: 'MarketWatch', url: 'https://feeds.marketwatch.com/marketwatch/topstories/', default: true },
+      { id: 'seeking-alpha', name: 'Seeking Alpha', url: 'https://seekingalpha.com/market_currents.xml', default: true },
+      { id: 'nyt-business', name: 'The New York Times Business', url: 'https://rss.nytimes.com/services/xml/rss/nyt/Business.xml', default: true },
+      { id: 'benzinga', name: 'Benzinga', url: 'https://www.benzinga.com/feed', default: true },
     ],
   },
   {
@@ -199,9 +223,11 @@ export const TOPICS: Topic[] = [
     icon: 'globe',
     relevanceHint: 'World news: major international events, conflicts, diplomacy and global affairs.',
     feeds: [
-      { id: 'bbc-world', name: 'BBC World', url: 'https://feeds.bbci.co.uk/news/world/rss.xml' },
-      { id: 'al-jazeera', name: 'Al Jazeera', url: 'https://www.aljazeera.com/xml/rss/all.xml' },
-      { id: 'npr-world', name: 'NPR World', url: 'https://feeds.npr.org/1001/rss.xml' },
+      { id: 'bbc-world', name: 'BBC World', url: 'https://feeds.bbci.co.uk/news/world/rss.xml', default: true },
+      { id: 'al-jazeera', name: 'Al Jazeera', url: 'https://www.aljazeera.com/xml/rss/all.xml', default: true },
+      { id: 'npr-world', name: 'NPR World', url: 'https://feeds.npr.org/1001/rss.xml', default: true },
+      { id: 'nyt-world', name: 'The New York Times World', url: 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml', default: true },
+      { id: 'france-24', name: 'France 24', url: 'https://www.france24.com/en/rss', default: true },
     ],
   },
   {
@@ -210,9 +236,11 @@ export const TOPICS: Topic[] = [
     icon: 'game-controller',
     relevanceHint: 'Gaming: video game releases, industry news, game design and esports. Reject deals and coupon posts.',
     feeds: [
-      { id: 'polygon', name: 'Polygon', url: 'https://www.polygon.com/rss/index.xml' },
-      { id: 'gamespot', name: 'GameSpot', url: 'https://www.gamespot.com/feeds/news/' },
-      { id: 'ign', name: 'IGN', url: 'https://feeds.feedburner.com/ign/all' },
+      { id: 'polygon', name: 'Polygon', url: 'https://www.polygon.com/rss/index.xml', default: true },
+      { id: 'gamespot', name: 'GameSpot', url: 'https://www.gamespot.com/feeds/news/', default: true },
+      { id: 'ign', name: 'IGN', url: 'https://feeds.feedburner.com/ign/all', default: true },
+      { id: 'eurogamer', name: 'Eurogamer', url: 'https://www.eurogamer.net/feed', default: true },
+      { id: 'pc-gamer', name: 'PC Gamer', url: 'https://www.pcgamer.com/rss/', default: true },
     ],
   },
   {
@@ -221,9 +249,11 @@ export const TOPICS: Topic[] = [
     icon: 'film',
     relevanceHint: 'Movies and TV: releases, reviews, industry news, casting and streaming.',
     feeds: [
-      { id: 'variety', name: 'Variety', url: 'https://variety.com/feed/' },
-      { id: 'hollywood-reporter', name: 'The Hollywood Reporter', url: 'https://www.hollywoodreporter.com/feed/' },
-      { id: 'guardian-film', name: 'The Guardian Film', url: 'https://www.theguardian.com/film/rss' },
+      { id: 'variety', name: 'Variety', url: 'https://variety.com/feed/', default: true },
+      { id: 'hollywood-reporter', name: 'The Hollywood Reporter', url: 'https://www.hollywoodreporter.com/feed/', default: true },
+      { id: 'guardian-film', name: 'The Guardian Film', url: 'https://www.theguardian.com/film/rss', default: true },
+      { id: 'indiewire', name: 'IndieWire', url: 'https://www.indiewire.com/feed/', default: true },
+      { id: 'deadline', name: 'Deadline', url: 'https://deadline.com/feed/', default: true },
     ],
   },
   {
@@ -232,9 +262,11 @@ export const TOPICS: Topic[] = [
     icon: 'musical-notes',
     relevanceHint: 'Music: releases, artists, albums, tours and the music industry.',
     feeds: [
-      { id: 'rolling-stone-music', name: 'Rolling Stone Music', url: 'https://www.rollingstone.com/music/feed/' },
-      { id: 'guardian-music', name: 'The Guardian Music', url: 'https://www.theguardian.com/music/rss' },
-      { id: 'pitchfork', name: 'Pitchfork', url: 'https://pitchfork.com/feed/feed-news/rss' },
+      { id: 'rolling-stone-music', name: 'Rolling Stone Music', url: 'https://www.rollingstone.com/music/feed/', default: true },
+      { id: 'guardian-music', name: 'The Guardian Music', url: 'https://www.theguardian.com/music/rss', default: true },
+      { id: 'pitchfork', name: 'Pitchfork', url: 'https://pitchfork.com/feed/feed-news/rss', default: true },
+      { id: 'stereogum', name: 'Stereogum', url: 'https://www.stereogum.com/feed/', default: true },
+      { id: 'consequence', name: 'Consequence', url: 'https://consequence.net/feed/', default: true },
     ],
   },
 ];
@@ -263,12 +295,13 @@ export function resolveTopics(ids: string[]): Topic[] {
 }
 
 // The starting feed list for a set of topics. A feed shared by several topics appears once.
+// Only feeds flagged `default` start enabled (up to 5 per topic); others start disabled.
 export function buildFeedsForTopics(ids: string[]): FeedConfig[] {
   const feeds = new Map<string, FeedConfig>();
   for (const topic of resolveTopics(ids)) {
     for (const f of topic.feeds) {
       if (!feeds.has(f.id)) {
-        feeds.set(f.id, { id: f.id, name: f.name, url: f.url, enabled: true, category: topic.label });
+        feeds.set(f.id, { id: f.id, name: f.name, url: f.url, enabled: !!f.default, category: topic.label });
       }
     }
   }
@@ -280,7 +313,7 @@ export function buildFeedsForTopics(ids: string[]): FeedConfig[] {
 export function applyTopicsToFeeds(current: FeedConfig[], ids: string[]): FeedConfig[] {
   const known = new Map(current.map(f => [f.id, f]));
   const custom = current.filter(f => !isRegistryFeed(f.id));
-  const built = buildFeedsForTopics(ids).map(f => ({ ...f, enabled: known.get(f.id)?.enabled ?? true }));
+  const built = buildFeedsForTopics(ids).map(f => ({ ...f, enabled: known.get(f.id)?.enabled ?? f.enabled }));
   return [...built, ...custom];
 }
 
@@ -300,6 +333,20 @@ export function toggleTopicSelection(
 }
 
 const isRegistryFeed = (feedId: string) => REGISTRY_FEEDS.has(feedId);
+
+// Saved lists keep the URL a feed had when it was stored, so a corrected registry URL would
+// never reach existing installs. Registry feeds can't be edited in the app, so take their
+// URL from the registry. Returns the same array when nothing changed.
+export function withRegistryUrls(feeds: FeedConfig[]): FeedConfig[] {
+  let changed = false;
+  const result = feeds.map(f => {
+    const url = REGISTRY_FEEDS.get(f.id)?.feed.url;
+    if (!url || url === f.url) return f;
+    changed = true;
+    return { ...f, url };
+  });
+  return changed ? result : feeds;
+}
 
 // Mixed registry feeds and custom feeds are keyword pre-filtered; the rest go straight to Gemini.
 export const needsKeywordFilter = (feedId: string) => {

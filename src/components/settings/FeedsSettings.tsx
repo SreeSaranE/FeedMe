@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Pressable, Switch, Alert, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { FeedConfig } from '../../types';
 import { useTheme, spacing, radius, type } from '../../theme';
 import { Card, SectionLabel, SettingsPage } from './shared';

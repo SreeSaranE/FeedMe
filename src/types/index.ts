@@ -31,10 +31,12 @@ export interface SummarizedArticle {
   imageUrl?: string;
   bulletSummary: string[];
   significance: string;
+  rawContent?: string;
   isRelevant: boolean;
   isBookmarked?: boolean;
   isRead?: boolean;
   isSample?: boolean; // built-in how-to card, removed once real articles arrive
+  isRaw?: boolean; // raw unsummarized RSS feed entry
   fetchedAt: string;
 }
 

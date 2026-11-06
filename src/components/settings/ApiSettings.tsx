@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
+import { View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AVAILABLE_MODELS } from '../../constants/defaultFeeds';
-import { useTheme, spacing, type } from '../../theme';
+import { useTheme, spacing, radius, type } from '../../theme';
 import { Card, SectionLabel, SettingsPage } from './shared';
 import { ApiUsage, UsageService } from '../../services/usage';
+import { GeminiService, KeyCheck } from '../../services/geminiService';
 
 interface Props {
   apiKey: string;
@@ -22,10 +23,26 @@ export const ApiSettings: React.FC<Props> = ({
   const { colors } = useTheme();
   const [showKey, setShowKey] = useState(false);
   const [usage, setUsage] = useState<ApiUsage | null>(null);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<KeyCheck | null>(null);
 
   useEffect(() => {
     UsageService.get().then(u => setUsage({ ...u }));
   }, []);
+
+  const handleTestKey = async () => {
+    if (!apiKey.trim() || testing) return;
+    setTesting(true);
+    setTestResult(null);
+    const result = await GeminiService.checkApiKey(apiKey);
+    setTesting(false);
+    setTestResult(result);
+  };
+
+  const handleKeyChange = (text: string) => {
+    onApiKeyChange(text);
+    if (testResult !== null) setTestResult(null);
+  };
 
   return (
     <SettingsPage>
@@ -37,7 +54,7 @@ export const ApiSettings: React.FC<Props> = ({
             placeholder="API key"
             placeholderTextColor={colors.textTertiary}
             value={apiKey}
-            onChangeText={onApiKeyChange}
+            onChangeText={handleKeyChange}
             secureTextEntry={!showKey}
             autoCapitalize="none"
             autoCorrect={false}
@@ -55,6 +72,44 @@ export const ApiSettings: React.FC<Props> = ({
             />
           </Pressable>
         </View>
+
+        {apiKey.trim().length > 0 && (
+          <View style={styles.testRow}>
+            <Pressable
+              onPress={handleTestKey}
+              disabled={testing}
+              accessibilityRole="button"
+              accessibilityLabel="Check API key"
+              style={({ pressed }) => [styles.testButton, { opacity: pressed || testing ? 0.6 : 1 }]}
+            >
+              {testing ? (
+                <ActivityIndicator size="small" color={colors.accent} />
+              ) : (
+                <Text style={[type.caption, { color: colors.accent, fontWeight: '600' }]}>
+                  Check key
+                </Text>
+              )}
+            </Pressable>
+            {testResult === 'valid' && (
+              <View style={styles.resultBadge}>
+                <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+                <Text style={[type.caption, { color: '#10B981', fontWeight: '500' }]}>Valid key</Text>
+              </View>
+            )}
+            {testResult === 'invalid' && (
+              <View style={styles.resultBadge}>
+                <Ionicons name="close-circle" size={16} color={colors.danger} />
+                <Text style={[type.caption, { color: colors.danger, fontWeight: '500' }]}>Invalid key</Text>
+              </View>
+            )}
+            {testResult === 'unreachable' && (
+              <View style={styles.resultBadge}>
+                <Ionicons name="alert-circle" size={16} color="#F59E0B" />
+                <Text style={[type.caption, { color: '#F59E0B', fontWeight: '500' }]}>Could not reach Google</Text>
+              </View>
+            )}
+          </View>
+        )}
       </Card>
 
       <SectionLabel>Model</SectionLabel>
@@ -112,6 +167,23 @@ const styles = StyleSheet.create({
     height: 52,
   },
   input: { flex: 1, paddingVertical: 0 },
+  testRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm + 4,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm + 4,
+  },
+  testButton: {
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.sm,
+  },
+  resultBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
   optionRow: {
     flexDirection: 'row',
     alignItems: 'center',

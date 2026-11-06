@@ -87,10 +87,12 @@ const sanitizeArticle = (a: SummarizedArticle): SummarizedArticle => ({
   title: asText(a.title),
   significance: asText(a.significance),
   sourceName: asText(a.sourceName),
+  rawContent: asText(a.rawContent),
   category: normalizeCategory(a.category),
   bulletSummary: Array.isArray(a.bulletSummary)
     ? a.bulletSummary.filter((b): b is string => typeof b === 'string')
     : [],
+  isRaw: typeof a.isRaw === 'boolean' ? a.isRaw : false,
 });
 
 // Publish time, else fetch time, else null (no usable date at all).
@@ -168,6 +170,25 @@ export const StorageService = {
       );
       await this.saveArticles(updated);
       return updated;
+    });
+  },
+
+  updateArticle(
+    articleId: string,
+    changes: Partial<SummarizedArticle>
+  ): Promise<SummarizedArticle[] | null> {
+    return withArticlesLock(async () => {
+      const articles = await this.getArticles();
+      let matched = false;
+      const updated = articles.map(art => {
+        if (art.id === articleId) {
+          matched = true;
+          return sanitizeArticle({ ...art, ...changes });
+        }
+        return art;
+      });
+      if (!matched) return articles;
+      return (await this.saveArticles(updated)) ? updated : null;
     });
   },
 

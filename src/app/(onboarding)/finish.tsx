@@ -57,7 +57,7 @@ export default function FinishScreen() {
         <Text style={[type.caption, styles.noticeText, { color: colors.text }]}>
           {hasKey
             ? 'API key saved. Your first sync starts now.'
-            : 'No API key yet. Add one in Settings → API Settings to start syncing. A few tips are waiting in your feed meanwhile.'}
+            : 'No API key yet. Your feeds will appear in raw mode. Add a Gemini API key in Settings → API Settings anytime for AI summaries.'}
         </Text>
       </View>
     </StepShell>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Modal, View, Text, Pressable, StyleSheet } from 'react-native';
+import { Modal, View, Text, Pressable, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,6 +13,7 @@ import { DataSettings, parseDays } from './settings/DataSettings';
 import { TopicsSettings } from './settings/TopicsSettings';
 import { AboutSettings } from './settings/AboutSettings';
 import { applyTopicsToFeeds, buildFeedsForTopics, sortFeeds, toggleTopicSelection } from '../constants/topics';
+import { GeminiService } from '../services/geminiService';
 
 interface SettingsModalProps {
   visible: boolean;
@@ -60,6 +61,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [feedList, setFeedList] = useState<FeedConfig[]>(sortFeeds(feeds));
   const [topicIds, setTopicIds] = useState(settings.selectedTopics);
   const [topicLimitHit, setTopicLimitHit] = useState(false);
+  const [checkingKey, setCheckingKey] = useState(false);
 
   // Each time the sheet opens, start from the saved values on the home page.
   // (Adjusting state during render avoids an extra render pass from an effect.)
@@ -76,10 +78,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setFeedList(sortFeeds(feeds));
       setTopicIds(settings.selectedTopics);
       setTopicLimitHit(false);
+      setCheckingKey(false);
     }
   }
 
-  const handleSaveAndClose = async () => {
+  const performSave = async () => {
     await onSaveSettings({
       ...settings,
       geminiApiKey: apiKey.trim(),
@@ -93,6 +96,49 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     onClose();
   };
 
+  const handleSaveAndClose = async () => {
+    if (checkingKey) return;
+
+    const trimmedKey = apiKey.trim();
+    const keyChanged = trimmedKey !== (settings.geminiApiKey || '').trim();
+
+    if (keyChanged && trimmedKey.length > 0) {
+      setCheckingKey(true);
+      try {
+        const check = await GeminiService.checkApiKey(trimmedKey);
+        setCheckingKey(false);
+        if (check === 'invalid') {
+          Alert.alert(
+            'Invalid API key',
+            'Google rejected this key. Please check that you copied all of it.'
+          );
+          setPage('api');
+          return;
+        }
+        if (check === 'unreachable') {
+          Alert.alert(
+            'Could not reach Google',
+            "Couldn't reach Google to check the key. Save anyway?",
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Save anyway',
+                onPress: async () => {
+                  await performSave();
+                },
+              },
+            ]
+          );
+          return;
+        }
+      } catch {
+        setCheckingKey(false);
+      }
+    }
+
+    await performSave();
+  };
+
   // The feed list follows the topics right away, so the Feeds page and its counts stay in step.
   const handleToggleTopic = (id: string) => {
     const { selected, limitHit } = toggleTopicSelection(topicIds, id, { allowEmpty: false });
@@ -104,12 +150,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const handleShowIntro = async () => {
+    if (checkingKey) return;
     await handleSaveAndClose();
     onShowIntro();
   };
 
   // Hardware back / swipe-down: step back through pages before closing.
   const handleBack = () => {
+    if (checkingKey) return;
     if (page === 'home') handleSaveAndClose();
     else setPage('home');
   };
@@ -132,10 +180,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             {page !== 'home' && (
               <Pressable
                 onPress={() => setPage('home')}
+                disabled={checkingKey}
                 hitSlop={8}
                 accessibilityRole="button"
                 accessibilityLabel="Back"
-                style={({ pressed }) => [styles.back, { opacity: pressed ? 0.5 : 1 }]}
+                style={({ pressed }) => [styles.back, { opacity: pressed || checkingKey ? 0.5 : 1 }]}
               >
                 <Ionicons name="chevron-back" size={24} color={colors.accent} />
               </Pressable>
@@ -145,11 +194,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <View style={[styles.side, styles.sideEnd]}>
             <Pressable
               onPress={handleSaveAndClose}
+              disabled={checkingKey}
               hitSlop={8}
               accessibilityRole="button"
-              style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}
+              accessibilityLabel={checkingKey ? 'Verifying API key' : 'Done'}
+              style={({ pressed }) => ({ opacity: pressed || checkingKey ? 0.5 : 1 })}
             >
-              <Text style={[type.label, { color: colors.accent }]}>Done</Text>
+              {checkingKey ? (
+                <ActivityIndicator size="small" color={colors.accent} />
+              ) : (
+                <Text style={[type.label, { color: colors.accent }]}>Done</Text>
+              )}
             </Pressable>
           </View>
         </View>
@@ -163,12 +218,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               subtitle={modelLabel}
               onPress={() => setPage('api')}
             />
-            <NavRow
+            {/* <NavRow
               icon="pricetags-outline"
               title="Topics"
               subtitle={`${topicIds.length} selected`}
               onPress={() => setPage('topics')}
-            />
+            /> */}
             <NavRow
               icon="newspaper-outline"
               title="Feeds"

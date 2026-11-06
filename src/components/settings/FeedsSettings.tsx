@@ -11,6 +11,7 @@ import {
   ToastAndroid,
   ScrollView,
   Keyboard,
+  ActivityIndicator,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Clipboard from 'expo-clipboard';
@@ -25,6 +26,7 @@ import {
 import { useTheme, spacing, radius, type } from '../../theme';
 import { Card, SectionLabel, SettingsPage } from './shared';
 import { normalizeFeedUrl } from '../../utils/url';
+import { RssParserService } from '../../services/rssParser';
 
 interface Props {
   feeds: FeedConfig[];
@@ -49,6 +51,7 @@ export const FeedsSettings: React.FC<Props> = ({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isCreatingNewCategory, setIsCreatingNewCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [isValidating, setIsValidating] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const availableCategories = useMemo(() => getAvailableCategories(feeds), [feeds]);
@@ -75,6 +78,7 @@ export const FeedsSettings: React.FC<Props> = ({
     setIsCreatingNewCategory(false);
     setNewCategoryName('');
     setIsDropdownOpen(false);
+    setIsValidating(false);
   };
 
   const handleToggleAdd = () => {
@@ -86,7 +90,7 @@ export const FeedsSettings: React.FC<Props> = ({
     }
   };
 
-  const add = () => {
+  const add = async () => {
     if (!name.trim() || !url.trim()) {
       Alert.alert('Missing Info', 'Please enter both feed name and feed URL.');
       return;
@@ -102,6 +106,43 @@ export const FeedsSettings: React.FC<Props> = ({
       return;
     }
 
+    Keyboard.dismiss();
+    setIsValidating(true);
+
+    let resolvedUrl = feedUrl;
+    let finalFeedName = name.trim();
+
+    try {
+      const resolved = await RssParserService.resolveFeed(name.trim(), feedUrl, 1);
+      if (!resolved || resolved.entries.length === 0) {
+        Alert.alert('No RSS found', 'Could not find any RSS entries at this link. Please check the URL.');
+        setIsValidating(false);
+        return;
+      }
+      resolvedUrl = resolved.feedUrl;
+      if (!finalFeedName && resolved.feedTitle) {
+        finalFeedName = resolved.feedTitle.trim();
+      }
+    } catch {
+      Alert.alert('No RSS found', 'Could not retrieve an RSS feed from this link. Please check the URL.');
+      setIsValidating(false);
+      return;
+    }
+
+    if (resolvedUrl !== feedUrl) {
+      const resolvedDuplicate = findDuplicateFeed(resolvedUrl, feeds);
+      if (resolvedDuplicate) {
+        Alert.alert(
+          'Duplicate Feed',
+          `This RSS link already exists in "${resolvedDuplicate.category}" as "${resolvedDuplicate.name}".`
+        );
+        setIsValidating(false);
+        return;
+      }
+    }
+
+    setIsValidating(false);
+
     const rawCategory = isCreatingNewCategory
       ? (newCategoryName.trim() || DEFAULT_FEED_CATEGORY)
       : (category.trim() || DEFAULT_FEED_CATEGORY);
@@ -110,14 +151,13 @@ export const FeedsSettings: React.FC<Props> = ({
     );
     const resolvedCategory = existingMatch ?? rawCategory;
 
-    Keyboard.dismiss();
     onChange(
       sortFeeds([
         ...feeds,
         {
           id: `custom-${Date.now()}`,
-          name: name.trim(),
-          url: feedUrl,
+          name: finalFeedName || name.trim(),
+          url: resolvedUrl,
           enabled: true,
           category: resolvedCategory,
         },
@@ -309,13 +349,22 @@ export const FeedsSettings: React.FC<Props> = ({
 
           <Pressable
             onPress={add}
+            disabled={isValidating}
             accessibilityRole="button"
+            accessibilityLabel={isValidating ? 'Validating feed' : 'Add feed'}
             style={({ pressed }) => [
               styles.addButton,
-              { backgroundColor: colors.accent, opacity: pressed ? 0.7 : 1 },
+              { backgroundColor: colors.accent, opacity: pressed || isValidating ? 0.7 : 1 },
             ]}
           >
-            <Text style={[type.label, { color: colors.onAccent }]}>Add feed</Text>
+            {isValidating ? (
+              <View style={styles.validatingRow}>
+                <ActivityIndicator size="small" color={colors.onAccent} />
+                <Text style={[type.label, { color: colors.onAccent }]}>Checking feed…</Text>
+              </View>
+            ) : (
+              <Text style={[type.label, { color: colors.onAccent }]}>Add feed</Text>
+            )}
           </Pressable>
         </View>
         </Card>
@@ -446,6 +495,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: radius.sm,
     borderCurve: 'continuous',
+  },
+  validatingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   feedRow: {
     flexDirection: 'row',

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Alert, AppState } from 'react-native';
 import { StorageService, DEFAULT_SETTINGS } from '../services/storage';
-import { resolveTopics, articleMatchesTopic, sortFeeds } from '../constants/topics';
+import { resolveTopics, articleMatchesTopic, sortFeeds, applyTopicsToFeeds } from '../constants/topics';
 import { PipelineService } from '../services/pipelineService';
 import { SummarizedArticle, FeedConfig, AppSettings, SyncProgress } from '../types';
 
@@ -31,6 +31,7 @@ export function useAppState() {
   const isSyncingRef = useRef(false);
   // Set when a sync stopped for lack of internet; it is retried when the app is next opened.
   const resumeWhenActiveRef = useRef(false);
+  const backlogAbortControllerRef = useRef<AbortController | null>(null);
 
   // Sync execution
   // `silent` suppresses the "missing API key" alert (used by the automatic startup sync).
@@ -46,7 +47,7 @@ export function useAppState() {
       );
       setArticles(result.allArticles);
       resumeWhenActiveRef.current = !!result.offline;
-      if (result.missingApiKey && !silent) {
+      if (result.missingApiKey && !silent && result.allArticles.length === 0) {
         Alert.alert('API key needed', 'Add your Gemini API key in Settings → API Settings to sync articles.');
       }
     } catch (e) {
@@ -66,8 +67,13 @@ export function useAppState() {
         StorageService.getSettings(),
       ]);
 
+      const reconciledFeeds = applyTopicsToFeeds(savedFeeds, savedSettings.selectedTopics);
+      if (reconciledFeeds.length !== savedFeeds.length || JSON.stringify(reconciledFeeds) !== JSON.stringify(savedFeeds)) {
+        await StorageService.saveFeeds(reconciledFeeds);
+      }
+
       setArticles(savedArticles);
-      setFeeds(savedFeeds);
+      setFeeds(reconciledFeeds);
       setSettings(savedSettings);
 
       // Auto-sync on startup when enabled (the list is seeded, so it is never empty)
@@ -97,6 +103,11 @@ export function useAppState() {
     // Loading persisted state on mount is a legitimate effect-time state update.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadInitialData();
+    return () => {
+      if (backlogAbortControllerRef.current) {
+        backlogAbortControllerRef.current.abort();
+      }
+    };
   }, [loadInitialData]);
 
   const toggleBookmark = useCallback(async (id: string) => {
@@ -110,8 +121,33 @@ export function useAppState() {
   }, []);
 
   const saveSettings = async (newSettings: AppSettings) => {
+    const prevKey = (settings.geminiApiKey || '').trim();
+    const newKey = (newSettings.geminiApiKey || '').trim();
+    const keyNewlyAddedOrChanged = Boolean(newKey) && prevKey !== newKey;
+
     await StorageService.saveSettings(newSettings);
     setSettings(newSettings);
+
+    if (keyNewlyAddedOrChanged && articles.some(a => a.isRaw && !a.isSample)) {
+      if (backlogAbortControllerRef.current) {
+        backlogAbortControllerRef.current.abort();
+      }
+      const controller = new AbortController();
+      backlogAbortControllerRef.current = controller;
+
+      PipelineService.summarizeBacklog(
+        newKey,
+        newSettings.geminiModel,
+        (articleId, changes) => {
+          setArticles(prev =>
+            prev.map(a => (a.id === articleId ? { ...a, ...changes } : a))
+          );
+        },
+        controller.signal
+      ).catch(err => {
+        console.warn('Backlog summarizer error:', err);
+      });
+    }
   };
 
   const saveFeeds = async (newFeeds: FeedConfig[]) => {
@@ -127,6 +163,9 @@ export function useAppState() {
   };
 
   const clearCache = async () => {
+    if (backlogAbortControllerRef.current) {
+      backlogAbortControllerRef.current.abort();
+    }
     await StorageService.clearArticles();
     setArticles([]);
   };
@@ -189,7 +228,8 @@ export function useAppState() {
         const inBullets = article.bulletSummary.some(b => b.toLowerCase().includes(q));
         const inSignificance = article.significance.toLowerCase().includes(q);
         const inSource = article.sourceName.toLowerCase().includes(q);
-        if (!inTitle && !inBullets && !inSignificance && !inSource) {
+        const inContent = (article.rawContent || '').toLowerCase().includes(q);
+        if (!inTitle && !inBullets && !inSignificance && !inSource && !inContent) {
           return false;
         }
       }

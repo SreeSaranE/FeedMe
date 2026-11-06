@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Share, ActivityIndicator, Pressable
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
+import { truncateWords } from '../../../utils/text';
 import { useApp } from '../../../features/articles/AppStateContext';
 import { useTheme, spacing, radius, type } from '../../../theme';
 import { formatFullDate } from '../../../utils/date';
@@ -20,7 +21,7 @@ export default function ArticleDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { colors } = useTheme();
-  const { loaded, articles, toggleBookmark, toggleRead } = useApp();
+  const { loaded, articles, toggleBookmark, toggleRead, settings } = useApp();
   const [imgError, setImgError] = useState(false);
 
   const article = articles.find(a => a.id === id);
@@ -124,6 +125,10 @@ export default function ArticleDetailScreen() {
     toggleRead(articleId);
   };
 
+  const isRaw = Boolean(
+    article.isRaw ||
+      (!article.bulletSummary?.length && !article.significance && !article.isSample)
+  );
   const showImage = Boolean(article.imageUrl && !imgError);
   const fullDate = formatFullDate(article.published) || formatFullDate(article.fetchedAt);
   const topicLabel = categoryLabel(article.category);
@@ -198,22 +203,36 @@ export default function ArticleDetailScreen() {
             {article.title}
           </Text>
 
-          {article.bulletSummary && article.bulletSummary.length > 0 ? (
+          {isRaw ? (
             <>
-              <SectionHeading>Key takeaways</SectionHeading>
-              <TakeawayList bullets={article.bulletSummary} />
+              <View style={styles.rawContentWrapper}>
+                <Text style={[type.body, styles.rawContentText, { color: colors.text }]} selectable>
+                  {truncateWords(article.rawContent || article.significance || '', 200)}
+                </Text>
+              </View>
+
+              <ArticleActions link={article.link} />
             </>
-          ) : null}
+          ) : (
+            <>
+              {article.bulletSummary && article.bulletSummary.length > 0 ? (
+                <>
+                  <SectionHeading>Key takeaways</SectionHeading>
+                  <TakeawayList bullets={article.bulletSummary} />
+                </>
+              ) : null}
 
-          {article.significance ? (
-            <View style={styles.calloutWrapper}>
-              <SignificanceCallout text={article.significance} />
-            </View>
-          ) : null}
+              {article.significance ? (
+                <View style={styles.calloutWrapper}>
+                  <SignificanceCallout text={article.significance} />
+                </View>
+              ) : null}
 
-          <ArticleActions link={article.link} />
+              <ArticleActions link={article.link} />
+            </>
+          )}
 
-          <ArticleFooter link={article.link} isSample={article.isSample} />
+          <ArticleFooter link={article.link} isSample={article.isSample} isRaw={isRaw} hasApiKey={Boolean(settings.geminiApiKey?.trim())} />
         </FadeIn>
       </ScrollView>
     </SafeAreaView>
@@ -276,5 +295,13 @@ const styles = StyleSheet.create({
   },
   calloutWrapper: {
     marginTop: spacing.lg,
+  },
+  rawContentWrapper: {
+    marginVertical: spacing.sm,
+  },
+  rawContentText: {
+    fontSize: 16,
+    lineHeight: 26,
+    letterSpacing: -0.1,
   },
 });

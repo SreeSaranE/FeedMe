@@ -2,8 +2,24 @@ import { StorageService } from './storage';
 import { RssParserService } from './rssParser';
 import { GeminiService, GeminiApiError } from './geminiService';
 import { NetworkError } from './http';
-import { resolveTopics, keywordRegexForTopics, needsKeywordFilter } from '../constants/topics';
-import { SummarizedArticle, SyncProgress } from '../types';
+import { resolveTopics, keywordRegexForTopics, needsKeywordFilter, TOPICS, getFeedCategory } from '../constants/topics';
+import { SummarizedArticle, SyncProgress, FeedConfig, RawFeedEntry } from '../types';
+
+function resolveCategoryForFeed(feed: FeedConfig): string {
+  const cat = feed.category?.trim();
+  if (cat) {
+    const matched = TOPICS.find(
+      t => t.id.toLowerCase() === cat.toLowerCase() || t.label.toLowerCase() === cat.toLowerCase()
+    );
+    if (matched) return matched.id;
+    return cat;
+  }
+  const fallbackCat = getFeedCategory(feed);
+  const matched = TOPICS.find(
+    t => t.id.toLowerCase() === fallbackCat.toLowerCase() || t.label.toLowerCase() === fallbackCat.toLowerCase()
+  );
+  return matched ? matched.id : fallbackCat;
+}
 
 export const PipelineService = {
   async runSync(
@@ -27,19 +43,7 @@ export const PipelineService = {
       console.warn('Auto-prune older articles failed:', e);
     }
 
-    if (!settings.geminiApiKey) {
-      // Without a key there is no AI vetting, so don't add unvetted articles.
-      const existing = await StorageService.getArticles();
-      onProgress?.({
-        isSyncing: false,
-        currentFeed: '',
-        currentIndex: 0,
-        totalFeeds: 0,
-        articlesSummarized: 0,
-        statusText: 'Add a Gemini API key in Settings to sync.',
-      });
-      return { newCount: 0, allArticles: existing, missingApiKey: true };
-    }
+    const hasApiKey = Boolean(settings.geminiApiKey?.trim());
 
     const processedIds = new Set(await StorageService.getProcessedIds());
     const topics = resolveTopics(settings.selectedTopics);
@@ -125,68 +129,100 @@ export const PipelineService = {
             continue;
           }
 
-          // Check if candidate
-          const isCandidate = RssParserService.isCandidateArticle(entry, prefilter);
-          if (!isCandidate) {
-            processedIds.add(entryKey);
-            continue;
-          }
-
-          updateProgress(feed.name, i + 1, `Summarizing candidate: "${entry.title.slice(0, 35)}..."`);
-
-          try {
-            // Some feeds (e.g. Hacker News) carry almost no text: read the page itself.
-            const enriched = await RssParserService.withArticleText(entry);
-            const analysis = await GeminiService.summarizeArticle(
-              enriched,
-              settings.geminiApiKey,
-              settings.geminiModel,
-              topics
-            );
-
-            if (analysis.isRelevant) {
-              const summarizedArticle: SummarizedArticle = {
-                id: entryKey,
-                title: entry.title,
-                link: entry.link,
-                sourceName: feed.name,
-                category: analysis.category,
-                published: entry.published,
-                imageUrl: entry.imageUrl,
-                bulletSummary: analysis.bulletSummary,
-                significance: analysis.significance,
-                isRelevant: true,
-                isBookmarked: false,
-                fetchedAt: new Date().toISOString()
-              };
-
-              newArticles.push(summarizedArticle);
-              articlesSummarized++;
+          if (hasApiKey) {
+            // Check if candidate
+            const isCandidate = RssParserService.isCandidateArticle(entry, prefilter);
+            if (!isCandidate) {
+              processedIds.add(entryKey);
+              continue;
             }
-          } catch (aiErr) {
-            console.warn(`Failed to summarize article: ${entry.title}`, aiErr);
-            // Leave it unprocessed so it is retried next sync. On a quota error
-            // (429) stop the whole run instead of burning more requests.
-            if (aiErr instanceof GeminiApiError && aiErr.status === 429) {
-              // Per-day vs per-minute: Google says which in the error body. A per-minute 429
-              // despite our limiter means something else is using the same key.
-              quotaMessage = /PerDay/i.test(aiErr.body)
-                ? 'Gemini daily quota reached'
-                : 'Gemini rate limit reached (is the key used elsewhere?)';
-              break;
+
+            updateProgress(feed.name, i + 1, `Summarizing candidate: "${entry.title.slice(0, 35)}..."`);
+
+            try {
+              // Some feeds (e.g. Hacker News) carry almost no text: read the page itself.
+              const enriched = await RssParserService.withArticleText(entry);
+              const analysis = await GeminiService.summarizeArticle(
+                enriched,
+                settings.geminiApiKey,
+                settings.geminiModel,
+                topics
+              );
+
+              if (analysis.isRelevant) {
+                const summarizedArticle: SummarizedArticle = {
+                  id: entryKey,
+                  title: entry.title,
+                  link: entry.link,
+                  sourceName: feed.name,
+                  category: analysis.category,
+                  published: entry.published,
+                  imageUrl: entry.imageUrl,
+                  bulletSummary: analysis.bulletSummary,
+                  significance: analysis.significance,
+                  rawContent: (enriched.content || enriched.summary || '').trim(),
+                  isRelevant: true,
+                  isBookmarked: false,
+                  isRaw: false,
+                  fetchedAt: new Date().toISOString()
+                };
+
+                newArticles.push(summarizedArticle);
+                articlesSummarized++;
+              }
+            } catch (aiErr) {
+              console.warn(`Failed to summarize article: ${entry.title}`, aiErr);
+              // Leave it unprocessed so it is retried next sync. On a quota error
+              // (429) stop the whole run instead of burning more requests.
+              if (aiErr instanceof GeminiApiError && aiErr.status === 429) {
+                quotaMessage = /PerDay/i.test(aiErr.body)
+                  ? 'Gemini daily quota reached'
+                  : 'Gemini rate limit reached (is the key used elsewhere?)';
+                break;
+              }
+              if (aiErr instanceof NetworkError) {
+                offline = true;
+                break;
+              }
+              const fatal = aiErr instanceof GeminiApiError ? aiErr.fatalMessage : null;
+              if (fatal) {
+                fatalMessage = fatal;
+                break;
+              }
+              failedArticles++;
+              continue;
             }
-            if (aiErr instanceof NetworkError) {
-              offline = true;
-              break;
+          } else {
+            // Raw feed mode: no API key configured. Ingest feed entries directly.
+            let rawContent = (entry.content || entry.summary || '').trim();
+            if (rawContent.length < 100) {
+              try {
+                const enriched = await RssParserService.withArticleText(entry);
+                rawContent = (enriched.content || enriched.summary || rawContent).trim();
+              } catch {
+                // Keep existing text
+              }
             }
-            // A rejected key or unknown model would fail every remaining article too.
-            const fatal = aiErr instanceof GeminiApiError ? aiErr.fatalMessage : null;
-            if (fatal) {
-              fatalMessage = fatal;
-              break;
-            }
-            failedArticles++;
-            continue;
+
+            const rawArticle: SummarizedArticle = {
+              id: entryKey,
+              title: entry.title,
+              link: entry.link,
+              sourceName: feed.name,
+              category: resolveCategoryForFeed(feed),
+              published: entry.published,
+              imageUrl: entry.imageUrl,
+              bulletSummary: [],
+              significance: '',
+              rawContent,
+              isRelevant: true,
+              isBookmarked: false,
+              isRaw: true,
+              fetchedAt: new Date().toISOString(),
+            };
+
+            newArticles.push(rawArticle);
+            articlesSummarized++;
           }
 
           processedIds.add(entryKey);
@@ -204,18 +240,116 @@ export const PipelineService = {
 
     await commit();
 
-    updateProgress('Complete', enabledFeeds.length, offline
-        ? `No internet connection. ${articlesSummarized} new articles added; the rest will retry next sync.`
-        : fatalMessage
-        ? `${fatalMessage}. Check Settings → API Settings.`
-        : quotaMessage
-        ? `${quotaMessage}. ${articlesSummarized} new articles added; the rest will retry next sync.`
-        : `Sync complete. ${articlesSummarized} new articles added.`, false);
+    const completionStatus = offline
+      ? `No internet connection. ${articlesSummarized} new articles added; the rest will retry next sync.`
+      : fatalMessage
+      ? `${fatalMessage}. Check Settings → API Settings.`
+      : quotaMessage
+      ? `${quotaMessage}. ${articlesSummarized} new articles added; the rest will retry next sync.`
+      : !hasApiKey
+      ? `Sync complete. ${articlesSummarized} articles added (raw feeds).`
+      : `Sync complete. ${articlesSummarized} new articles added.`;
+
+    updateProgress('Complete', enabledFeeds.length, completionStatus, false);
 
     return {
       newCount: articlesSummarized,
       offline,
-      allArticles: wasCleared() ? [] : latestArticles
+      allArticles: wasCleared() ? [] : latestArticles,
+      missingApiKey: !hasApiKey,
     };
+  },
+
+  async summarizeBacklog(
+    apiKey: string,
+    model?: string,
+    onArticleUpdated?: (articleId: string, changes: Partial<SummarizedArticle>) => void,
+    signal?: AbortSignal
+  ): Promise<{ summarizedCount: number }> {
+    const trimmedKey = (apiKey || '').trim();
+    if (!trimmedKey) return { summarizedCount: 0 };
+
+    const storedArticles = await StorageService.getArticles();
+    const settings = await StorageService.getSettings();
+    const effectiveModel = model || settings.geminiModel;
+    const topics = resolveTopics(settings.selectedTopics);
+
+    // Pick up to 15 newest raw, non-sample articles
+    const rawArticles = storedArticles
+      .filter(a => a.isRaw && !a.isSample)
+      .slice(0, 15);
+
+    if (rawArticles.length === 0) return { summarizedCount: 0 };
+
+    let summarizedCount = 0;
+    const startEpoch = StorageService.getClearEpoch();
+
+    for (const rawArt of rawArticles) {
+      if (signal?.aborted) break;
+      if (StorageService.getClearEpoch() !== startEpoch) break;
+
+      const entry: RawFeedEntry = {
+        id: rawArt.id,
+        title: rawArt.title,
+        link: rawArt.link,
+        summary: rawArt.rawContent || '',
+        content: rawArt.rawContent || '',
+        published: rawArt.published,
+        imageUrl: rawArt.imageUrl,
+        sourceName: rawArt.sourceName,
+      };
+
+      let enriched = entry;
+      try {
+        enriched = await RssParserService.withArticleText(entry);
+      } catch {
+        // Keep initial entry
+      }
+
+      if (signal?.aborted || StorageService.getClearEpoch() !== startEpoch) break;
+
+      try {
+        const analysis = await GeminiService.summarizeArticle(
+          enriched,
+          trimmedKey,
+          effectiveModel,
+          topics
+        );
+
+        if (analysis.bulletSummary && analysis.bulletSummary.length > 0) {
+          const rawContentText = (enriched.content || enriched.summary || rawArt.rawContent || '').trim();
+          const changes: Partial<SummarizedArticle> = {
+            bulletSummary: analysis.bulletSummary,
+            significance: analysis.significance,
+            category: analysis.category || rawArt.category,
+            rawContent: rawContentText,
+            isRaw: false,
+          };
+
+          await StorageService.updateArticle(rawArt.id, changes);
+          summarizedCount++;
+          onArticleUpdated?.(rawArt.id, changes);
+        }
+      } catch (aiErr) {
+        console.warn(`Backlog summarizer failed for "${rawArt.title}":`, aiErr);
+        if (aiErr instanceof GeminiApiError && aiErr.status === 429) {
+          console.warn('Backlog summarizer stopped: rate limit / quota hit');
+          break;
+        }
+        if (aiErr instanceof GeminiApiError && aiErr.fatalMessage) {
+          console.warn('Backlog summarizer stopped: key rejected');
+          break;
+        }
+        if (aiErr instanceof NetworkError) {
+          console.warn('Backlog summarizer stopped: network offline');
+          break;
+        }
+      }
+
+      if (signal?.aborted) break;
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
+
+    return { summarizedCount };
   }
 };

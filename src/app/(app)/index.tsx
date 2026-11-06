@@ -7,6 +7,7 @@ import {
   Easing,
   RefreshControl,
   Platform,
+  PanResponder,
   NativeSyntheticEvent,
   NativeScrollEvent,
   LayoutChangeEvent,
@@ -104,6 +105,25 @@ export default function FeedScreen() {
 
   const { showIntroAgain } = useGate();
   const syncStatus = getSyncStatus(syncProgress);
+
+  // Option B (Full-width Swipe): Swiping left-to-right anywhere across the feed screen opens the sidebar
+  const openPanResponder = useMemo(() => {
+    return PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onStartShouldSetPanResponderCapture: () => false,
+      onMoveShouldSetPanResponderCapture: () => false,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        if (isSidebarOpen || isSettingsOpen) return false;
+        return (
+          gestureState.dx > 20 &&
+          Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.5
+        );
+      },
+      onPanResponderGrant: () => {
+        setIsSidebarOpen(true);
+      },
+    });
+  }, [isSidebarOpen, isSettingsOpen]);
 
   const openArticle = useCallback(
     (id: string) => router.push({ pathname: '/article/[id]', params: { id } }),
@@ -240,7 +260,10 @@ export default function FeedScreen() {
   };
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.background }]}>
+    <View
+      style={[styles.root, { backgroundColor: colors.background }]}
+      {...openPanResponder.panHandlers}
+    >
       <SafeAreaView
         style={[styles.safeArea, { backgroundColor: colors.background }]}
         edges={['top', 'bottom', 'left', 'right']}
@@ -266,7 +289,10 @@ export default function FeedScreen() {
             keyExtractor={(item: SummarizedArticle) => item.id}
             renderItem={renderArticle}
             initialNumToRender={10}
-            windowSize={9}
+            maxToRenderPerBatch={8}
+            updateCellsBatchingPeriod={50}
+            windowSize={5}
+            removeClippedSubviews={Platform.OS === 'android'}
             contentContainerStyle={[styles.listContent, { paddingTop: collapsibleHeight }]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"

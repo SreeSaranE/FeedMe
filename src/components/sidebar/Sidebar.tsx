@@ -188,7 +188,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         } else {
           Animated.timing(progress, {
             toValue: 1,
-            duration: 180,
+            duration: reduceMotion ? 0 : 180,
             easing: Easing.out(Easing.cubic),
             useNativeDriver: true,
           }).start();
@@ -197,13 +197,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       onPanResponderTerminate: () => {
         Animated.timing(progress, {
           toValue: 1,
-          duration: 180,
+          duration: reduceMotion ? 0 : 180,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }).start();
       },
     });
-  }, [width, progress, onClose]);
+  }, [width, progress, reduceMotion, onClose]);
 
   const toggleSection = (key: string) => {
     setExpandedKeys((prev) => {

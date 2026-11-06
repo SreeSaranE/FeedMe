@@ -416,7 +416,8 @@ export const RssParserService = {
         10000
       );
       if (!res.ok) {
-        console.warn(`HTTP ${res.status} scraping article page: ${entry.link}`);
+        // Anti-bot protection (e.g. 403 on Cloudflare-protected sites like Product Hunt)
+        // or missing pages: best-effort fallback to the RSS summary.
         return entry;
       }
       const html = res.text;

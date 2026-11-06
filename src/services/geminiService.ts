@@ -157,7 +157,7 @@ export const GeminiService = {
   async summarizeArticle(
     entry: RawFeedEntry,
     apiKey: string,
-    model = 'gemini-3.1-flash-lite',
+    model = 'gemini-3.5-flash-lite',
     topics: Topic[] = []
   ): Promise<GeminiAnalysisResult> {
     if (!apiKey) {

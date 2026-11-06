@@ -10,7 +10,7 @@ export interface TopicFeed {
   // General-interest feed: its entries are keyword pre-filtered before Gemini sees them.
   // Feeds that are on-topic by nature skip the pre-filter (Gemini still decides relevance).
   mixed?: boolean;
-  // Starts enabled when the topic is picked; max 5 per topic; never on a feed shared by several topics.
+  // Starts enabled when the topic is picked; max 4 per topic; never on a feed shared by several topics.
   default?: boolean;
 }
 
@@ -26,7 +26,7 @@ export interface Topic {
 }
 
 export const MAX_TOPICS = 10;
-export const DEFAULT_FEEDS_PER_TOPIC = 5;
+export const DEFAULT_FEEDS_PER_TOPIC = 4;
 
 const REJECT_GADGETS = 'Reject consumer gadget news, reviews, deals and general tech-industry gossip.';
 
@@ -295,7 +295,7 @@ export function resolveTopics(ids: string[]): Topic[] {
 }
 
 // The starting feed list for a set of topics. A feed shared by several topics appears once.
-// Only feeds flagged `default` start enabled (up to 5 per topic); others start disabled.
+// Only feeds flagged `default` start enabled (up to 4 per topic); others start disabled.
 export function buildFeedsForTopics(ids: string[]): FeedConfig[] {
   const feeds = new Map<string, FeedConfig>();
   for (const topic of resolveTopics(ids)) {

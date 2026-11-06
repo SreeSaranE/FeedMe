@@ -31,7 +31,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
     return (
       <View style={styles.container}>
         <Text style={[type.headline, { color: colors.text }]}>
-          {isRead ? 'No viewed articles yet' : 'No bookmarks yet'}
+          {isRead ? 'No history yet' : 'No bookmarks yet'}
         </Text>
         <Text style={[type.body, styles.body, { color: colors.textSecondary }]}>
           {isRead

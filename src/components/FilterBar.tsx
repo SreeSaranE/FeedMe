@@ -1,55 +1,18 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput } from 'react-native';
+import { View, StyleSheet, Pressable, TextInput } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTheme, spacing, radius, type } from '../theme';
 
 interface FilterBarProps {
-  categories: { id: string; label: string }[]; // topic chips; 'All' is always first
-  selectedCategory: string;
-  onSelectCategory: (category: string) => void;
-  selectedSource: string;
-  onSelectSource: (source: string) => void;
-  availableSources: string[];
   searchQuery: string;
   onSearchChange: (text: string) => void;
 }
 
 export const FilterBar: React.FC<FilterBarProps> = ({
-  categories,
-  selectedCategory,
-  onSelectCategory,
-  selectedSource,
-  onSelectSource,
-  availableSources,
   searchQuery,
   onSearchChange,
 }) => {
   const { colors } = useTheme();
-
-  const chip = (key: string, label: string, selected: boolean, onPress: () => void) => (
-    <Pressable
-      key={key}
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityState={{ selected }}
-      style={({ pressed }) => [
-        styles.chip,
-        {
-          backgroundColor: selected ? colors.text : colors.surface,
-          opacity: pressed ? 0.7 : 1,
-        },
-      ]}
-    >
-      <Text
-        style={[
-          type.caption,
-          { fontWeight: '500', color: selected ? colors.background : colors.textSecondary },
-        ]}
-      >
-        {label}
-      </Text>
-    </Pressable>
-  );
 
   return (
     <View style={[styles.container, { borderBottomColor: colors.separator }]}>
@@ -77,22 +40,6 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           </Pressable>
         )}
       </View>
-
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chips}
-      >
-        {chip('all', 'All', selectedCategory === 'All', () => onSelectCategory('All'))}
-        {categories.map(cat => chip(`cat-${cat.id}`, cat.label, selectedCategory === cat.id, () => onSelectCategory(cat.id)))}
-        {availableSources.length > 0 && (
-          <View style={[styles.divider, { backgroundColor: colors.separator }]} />
-        )}
-        {availableSources.map(source => {
-          const selected = selectedSource === source;
-          return chip(`src-${source}`, source, selected, () => onSelectSource(selected ? 'All' : source));
-        })}
-      </ScrollView>
     </View>
   );
 };
@@ -101,7 +48,6 @@ const styles = StyleSheet.create({
   container: {
     paddingTop: spacing.sm, // keeps the sync progress line (bar's bottom edge) clear of the search field
     paddingBottom: spacing.sm,
-    gap: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   search: {
@@ -115,15 +61,4 @@ const styles = StyleSheet.create({
     borderCurve: 'continuous',
   },
   searchInput: { flex: 1, paddingVertical: 0 },
-  chips: {
-    paddingHorizontal: spacing.md,
-    gap: spacing.sm,
-    alignItems: 'center',
-  },
-  chip: {
-    paddingHorizontal: spacing.md - 2,
-    paddingVertical: 6,
-    borderRadius: radius.full,
-  },
-  divider: { width: StyleSheet.hairlineWidth, height: 16, marginHorizontal: spacing.xs },
 });

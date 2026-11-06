@@ -16,13 +16,14 @@ const ArticleCardBase: React.FC<ArticleCardProps> = ({ article, onPress }) => {
 
   const showImage = Boolean(article.imageUrl && !imgError);
   const dateText = articleDateLabel(article);
+  const metaText = [dateText, article.sourceName].filter(Boolean).join(' · ');
 
   return (
     <Pressable
       onPress={() => onPress(article.id)}
       unstable_pressDelay={100}
       accessibilityRole="link"
-      accessibilityLabel={dateText ? `${article.title}, ${dateText}` : article.title}
+      accessibilityLabel={metaText ? `${article.title}, ${metaText}` : article.title}
       style={({ pressed }) => [
         styles.row,
         {
@@ -35,9 +36,9 @@ const ArticleCardBase: React.FC<ArticleCardProps> = ({ article, onPress }) => {
         <Text style={[type.rowTitle, { color: colors.text }]} numberOfLines={3}>
           {article.title}
         </Text>
-        {dateText ? (
-          <Text style={[type.caption, { color: colors.textSecondary }]}>
-            {dateText}
+        {metaText ? (
+          <Text style={[type.caption, { color: colors.textSecondary }]} numberOfLines={1}>
+            {metaText}
           </Text>
         ) : null}
       </View>

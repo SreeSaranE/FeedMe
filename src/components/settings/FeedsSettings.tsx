@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Pressable, Switch, Alert, StyleSheet } from 'react-native';
+import { View, Text, TextInput, Pressable, Switch, Alert, StyleSheet, Platform, ToastAndroid } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import * as Clipboard from 'expo-clipboard';
 import { FeedConfig } from '../../types';
 import { useTheme, spacing, radius, type } from '../../theme';
 import { Card, SectionLabel, SettingsPage } from './shared';
@@ -25,6 +26,18 @@ export const FeedsSettings: React.FC<Props> = ({
   const [showAdd, setShowAdd] = useState(false);
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const copyFeedUrl = async (id: string, feedUrl: string) => {
+    await Clipboard.setStringAsync(feedUrl);
+    setCopiedId(id);
+    setTimeout(() => {
+      setCopiedId(prev => (prev === id ? null : prev));
+    }, 2000);
+    if (Platform.OS === 'android') {
+      ToastAndroid.show('Feed URL copied', ToastAndroid.SHORT);
+    }
+  };
 
   const toggle = (id: string) =>
     onChange(feeds.map(f => (f.id === id ? { ...f, enabled: !f.enabled } : f)));
@@ -154,12 +167,25 @@ export const FeedsSettings: React.FC<Props> = ({
       <Card>
       {feeds.map(feed => (
         <View key={feed.id} style={styles.feedRow}>
-          <View style={styles.feedInfo}>
+          <Pressable
+            style={({ pressed }) => [styles.feedInfo, pressed && { opacity: 0.7 }]}
+            onLongPress={() => copyFeedUrl(feed.id, feed.url)}
+            delayLongPress={350}
+            accessibilityRole="button"
+            accessibilityLabel={`${feed.name}, ${feed.url}`}
+            accessibilityHint="Long press to copy feed URL"
+          >
             <Text style={[type.body, { color: colors.text }]}>{feed.name}</Text>
-            <Text style={[type.caption, { color: colors.textTertiary }]} numberOfLines={1}>
-              {feed.url}
-            </Text>
-          </View>
+            {copiedId === feed.id ? (
+              <Text style={[type.caption, { color: colors.accent }]} numberOfLines={1}>
+                Copied to clipboard
+              </Text>
+            ) : (
+              <Text style={[type.caption, { color: colors.textTertiary }]} numberOfLines={1}>
+                {feed.url}
+              </Text>
+            )}
+          </Pressable>
           <Switch
             value={feed.enabled}
             onValueChange={() => toggle(feed.id)}

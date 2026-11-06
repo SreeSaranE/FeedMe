@@ -154,7 +154,7 @@ function normalizeLink(linkData: any): string {
 }
 
 export const RssParserService = {
-  async fetchFeedEntries(feedName: string, feedUrl: string, limit = 5): Promise<RawFeedEntry[]> {
+  async fetchFeedEntries(feedName: string, feedUrl: string, limit = 4): Promise<RawFeedEntry[]> {
     const response = await fetchTextWithTimeout(normalizeFeedUrl(feedUrl), {
       headers: {
         'User-Agent': USER_AGENT,

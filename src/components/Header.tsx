@@ -4,32 +4,26 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTheme, spacing, type } from '../theme';
 
 interface ActionBarProps {
+  title?: string;
   articleCount: number;
   statusText?: string; // sync status; replaces the count while present
   statusIsError?: boolean;
   progressPercent?: number | null; // thin progress line along the bar's bottom edge
   isSyncing: boolean;
   onSyncPress: () => void;
-  onSettingsPress: () => void;
-  showBookmarksOnly: boolean;
-  onToggleBookmarks: () => void;
-  showReadOnly: boolean;
-  onToggleRead: () => void;
+  onMenuPress: () => void;
 }
 
-// Always-visible bar: app name + count on the left, three actions on the right.
+// Always-visible bar: menu button + app name/title + count on the left, sync action on the right.
 export const ActionBar: React.FC<ActionBarProps> = ({
+  title = 'FeedMe',
   articleCount,
   statusText,
   statusIsError,
   progressPercent,
   isSyncing,
   onSyncPress,
-  onSettingsPress,
-  showBookmarksOnly,
-  onToggleBookmarks,
-  showReadOnly,
-  onToggleRead,
+  onMenuPress,
 }) => {
   const { colors } = useTheme();
   const iconButton = ({ pressed }: { pressed: boolean }) => [
@@ -37,43 +31,31 @@ export const ActionBar: React.FC<ActionBarProps> = ({
     { opacity: pressed ? 0.5 : 1 },
   ];
 
+  const countText = `${articleCount} article${articleCount === 1 ? '' : 's'}`;
+
   return (
     <View style={[styles.bar, { backgroundColor: colors.background }]}>
+      <Pressable
+        style={iconButton}
+        onPress={onMenuPress}
+        accessibilityRole="button"
+        accessibilityLabel="Open menu"
+      >
+        <Ionicons name="menu-outline" size={27} color={colors.text} />
+      </Pressable>
+
       <View style={styles.title}>
-        <Text style={[type.headline, { color: colors.text }]}>FeedMe</Text>
+        <Text style={[type.headline, { color: colors.text }]} numberOfLines={1}>
+          {title}
+        </Text>
         <Text
           style={[type.caption, { color: statusIsError ? colors.danger : colors.textSecondary }]}
           numberOfLines={1}
         >
-          {statusText || `${showReadOnly ? 'Read · ' : showBookmarksOnly ? 'Saved · ' : ''}${articleCount} article${articleCount === 1 ? '' : 's'}`}
+          {statusText || countText}
         </Text>
       </View>
-      <Pressable
-        style={iconButton}
-        onPress={onToggleRead}
-        accessibilityRole="button"
-        accessibilityLabel="Show read articles"
-        accessibilityState={{ selected: showReadOnly }}
-      >
-        <Ionicons
-          name={showReadOnly ? 'checkmark-done' : 'checkmark-done-outline'}
-          size={22}
-          color={showReadOnly ? colors.accent : colors.text}
-        />
-      </Pressable>
-      <Pressable
-        style={iconButton}
-        onPress={onToggleBookmarks}
-        accessibilityRole="button"
-        accessibilityLabel="Show saved articles"
-        accessibilityState={{ selected: showBookmarksOnly }}
-      >
-        <Ionicons
-          name={showBookmarksOnly ? 'bookmark' : 'bookmark-outline'}
-          size={22}
-          color={showBookmarksOnly ? colors.accent : colors.text}
-        />
-      </Pressable>
+
       <Pressable
         style={iconButton}
         onPress={onSyncPress}
@@ -88,14 +70,7 @@ export const ActionBar: React.FC<ActionBarProps> = ({
           <Ionicons name="refresh" size={22} color={colors.text} />
         )}
       </Pressable>
-      <Pressable
-        style={iconButton}
-        onPress={onSettingsPress}
-        accessibilityRole="button"
-        accessibilityLabel="Settings"
-      >
-        <Ionicons name="settings-outline" size={22} color={colors.text} />
-      </Pressable>
+
       {progressPercent != null && (
         <View style={[styles.track, { backgroundColor: colors.separator }]}>
           <View
@@ -112,10 +87,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     height: 52,
-    paddingLeft: spacing.md,
+    paddingLeft: spacing.xs,
     paddingRight: spacing.sm,
   },
-  title: { flex: 1 },
+  title: {
+    flex: 1,
+    marginLeft: spacing.xs,
+  },
   track: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 2 },
   trackFill: { height: '100%' },
   iconButton: {

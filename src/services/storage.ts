@@ -27,7 +27,7 @@ const KEYS = {
 
 export const DEFAULT_SETTINGS: AppSettings = {
   geminiApiKey: '', // user-entered in Settings (not an EXPO_PUBLIC_ var: those are bundled into the app)
-  geminiModel: process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-3.1-flash-lite',
+  geminiModel: process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-3.5-flash-lite',
   autoSyncOnStart: true,
   articlesPerFeed: 3,
   deleteOlderThanDays: 10,

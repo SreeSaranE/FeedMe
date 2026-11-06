@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useMemo } from 'react';
 import {
   StyleSheet,
   View,
@@ -22,6 +22,9 @@ import { SettingsModal } from '../../components/SettingsModal';
 import { EmptyState } from '../../components/EmptyState';
 import { useApp } from '../../features/articles/AppStateContext';
 import { useGate } from '../../features/onboarding/OnboardingContext';
+import { resolveTopics, TOPICS } from '../../constants/topics';
+import { buildSidebarSections } from '../../features/sidebar/sections';
+import { Sidebar } from '../../components/sidebar/Sidebar';
 import { SummarizedArticle } from '../../types';
 
 const PULL_TO_SYNC_THRESHOLD = 140;
@@ -33,6 +36,7 @@ export default function FeedScreen() {
   const { colors } = useTheme();
   const {
     loaded,
+    articles,
     feeds,
     settings,
     syncProgress,
@@ -41,7 +45,6 @@ export default function FeedScreen() {
     saveFeeds,
     deleteOlder,
     clearCache,
-    categoryChips,
     activeCategory,
     setSelectedCategory,
     activeSource,
@@ -52,7 +55,6 @@ export default function FeedScreen() {
     setShowReadOnly,
     searchQuery,
     setSearchQuery,
-    availableSources,
     filteredArticles,
     hasRealArticles,
     onlySamples,
@@ -64,8 +66,41 @@ export default function FeedScreen() {
 
   const router = useRouter();
 
-  // Modals
+  // Modals & Navigation
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
+  const pendingSettings = useRef(false);
+
+  const topics = useMemo(
+    () => resolveTopics(settings.selectedTopics),
+    [settings.selectedTopics]
+  );
+  const sections = useMemo(
+    () => buildSidebarSections(topics, feeds, articles),
+    [topics, feeds, articles]
+  );
+
+  const view: 'home' | 'saved' | 'read' = showReadOnly
+    ? 'read'
+    : showBookmarksOnly
+    ? 'saved'
+    : 'home';
+
+  const navbarTitle = useMemo(() => {
+    if (activeSource !== 'All') {
+      return activeSource;
+    }
+    if (activeCategory !== 'All') {
+      const topic = topics.find(t => t.id === activeCategory);
+      if (topic) return topic.label;
+      const allTopic = TOPICS.find(t => t.id === activeCategory);
+      if (allTopic) return allTopic.label;
+      return activeCategory;
+    }
+    if (showReadOnly) return 'History';
+    if (showBookmarksOnly) return 'Bookmarks';
+    return 'FeedMe';
+  }, [activeSource, activeCategory, topics, showReadOnly, showBookmarksOnly]);
 
   const { showIntroAgain } = useGate();
   const syncStatus = getSyncStatus(syncProgress);
@@ -87,9 +122,9 @@ export default function FeedScreen() {
     if (e.nativeEvent.contentOffset.y <= -PULL_TO_SYNC_THRESHOLD) runSync();
   };
 
-  // Collapsible top block (title, progress, search, chips): hides on scroll down and
+  // Collapsible top block (search): hides on scroll down and
   // returns on scroll up. `reveal` is 1 when shown, 0 when hidden.
-  const [collapsibleHeight, setCollapsibleHeight] = useState(96); // estimate until measured
+  const [collapsibleHeight, setCollapsibleHeight] = useState(56); // estimate until measured
   const [heightMeasured, setHeightMeasured] = useState(false);
   const listRef = useRef<FlatList<SummarizedArticle>>(null);
   const [reveal] = useState(() => new Animated.Value(1));
@@ -144,134 +179,204 @@ export default function FeedScreen() {
     resetFilters();
   };
 
-  return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top', 'bottom', 'left', 'right']}>
-      {/* Always-visible actions */}
-      <ActionBar
-        articleCount={filteredArticles.length}
-        statusText={syncStatus.text || (onlySamples ? 'Getting started' : '')}
-        statusIsError={syncStatus.isError}
-        progressPercent={syncStatus.percent}
-        isSyncing={syncProgress.isSyncing}
-        onSyncPress={() => runSync()}
-        onSettingsPress={() => setIsSettingsOpen(true)}
-        showBookmarksOnly={showBookmarksOnly}
-        onToggleBookmarks={() => {
-          resetListPosition();
-          setShowBookmarksOnly(!showBookmarksOnly);
-          setShowReadOnly(false);
-        }}
-        showReadOnly={showReadOnly}
-        onToggleRead={() => {
-          resetListPosition();
-          setShowReadOnly(!showReadOnly);
-          setShowBookmarksOnly(false);
-        }}
-      />
+  // Sidebar selection handlers
+  const selectHome = () => {
+    resetListPosition();
+    setShowBookmarksOnly(false);
+    setShowReadOnly(false);
+    setSelectedCategory('All');
+    setSelectedSource('All');
+    setIsSidebarOpen(false);
+  };
 
-      <View style={styles.listArea}>
-        {/* Main feed: content is padded by the overlay's height */}
-        <AnimatedFlatList
-          ref={listRef}
-          style={{ opacity: heightMeasured ? 1 : 0 }} // hidden until the top block is measured (no first-frame jump)
-          data={filteredArticles}
-          keyExtractor={(item: SummarizedArticle) => item.id}
-          renderItem={renderArticle}
-          initialNumToRender={10}
-          windowSize={9}
-          contentContainerStyle={[styles.listContent, { paddingTop: collapsibleHeight }]}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          scrollEventThrottle={16}
-          onScroll={handleScroll}
-          onContentSizeChange={handleContentSizeChange}
-          onScrollEndDrag={Platform.OS === 'ios' ? handleScrollEndDrag : undefined}
-          refreshControl={
-            Platform.OS !== 'ios' ? (
-              <RefreshControl
-                refreshing={false} // navbar shows sync state; avoid a second spinner in the middle
-                onRefresh={() => runSync()}
-                progressViewOffset={collapsibleHeight}
-                tintColor={colors.textSecondary}
-                colors={[colors.accent]}
-              />
-            ) : undefined
-          }
-          // Until storage is read, articles and the key are empty defaults: show nothing rather
-          // than flashing "Add your API key".
-          ListEmptyComponent={
-            loaded ? (
-              <EmptyState
-                isFiltering={isFilteringActive}
-                emptyView={emptyView}
-                caughtUp={hasRealArticles}
-                needsKey={needsKey}
-                onOpenSettings={() => setIsSettingsOpen(true)}
-                isSyncing={syncProgress.isSyncing}
-                onSync={() => runSync()}
-                onClearFilter={handleResetFilters}
-              />
-            ) : undefined
-          }
+  const selectSaved = () => {
+    resetListPosition();
+    if (showBookmarksOnly) {
+      setShowBookmarksOnly(false);
+      setShowReadOnly(false);
+      setSelectedCategory('All');
+      setSelectedSource('All');
+    } else {
+      setShowBookmarksOnly(true);
+      setShowReadOnly(false);
+      setSelectedCategory('All');
+      setSelectedSource('All');
+    }
+    setIsSidebarOpen(false);
+  };
+
+  const selectRead = () => {
+    resetListPosition();
+    if (showReadOnly) {
+      setShowBookmarksOnly(false);
+      setShowReadOnly(false);
+      setSelectedCategory('All');
+      setSelectedSource('All');
+    } else {
+      setShowReadOnly(true);
+      setShowBookmarksOnly(false);
+      setSelectedCategory('All');
+      setSelectedSource('All');
+    }
+    setIsSidebarOpen(false);
+  };
+
+  const selectCategory = (topicId: string) => {
+    resetListPosition();
+    setShowBookmarksOnly(false);
+    setShowReadOnly(false);
+    setSelectedCategory(topicId);
+    setSelectedSource('All');
+    setIsSidebarOpen(false);
+  };
+
+  const selectFeed = (feedName: string) => {
+    resetListPosition();
+    setShowBookmarksOnly(false);
+    setShowReadOnly(false);
+    setSelectedCategory('All');
+    setSelectedSource(feedName);
+    setIsSidebarOpen(false);
+  };
+
+  return (
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
+      <SafeAreaView
+        style={[styles.safeArea, { backgroundColor: colors.background }]}
+        edges={['top', 'bottom', 'left', 'right']}
+      >
+        {/* Always-visible actions */}
+        <ActionBar
+          title={navbarTitle}
+          articleCount={filteredArticles.length}
+          statusText={syncStatus.text || (onlySamples ? 'Getting started' : '')}
+          statusIsError={syncStatus.isError}
+          progressPercent={syncStatus.percent}
+          isSyncing={syncProgress.isSyncing}
+          onSyncPress={() => runSync()}
+          onMenuPress={() => setIsSidebarOpen(true)}
         />
 
-        {/* Collapsible overlay: slides up out of view on scroll down */}
-        <Animated.View
-          onLayout={handleCollapsibleLayout}
-          style={[
-            styles.collapsible,
-            {
-              backgroundColor: colors.background,
-              transform: [
-                {
-                  translateY: reveal.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [-collapsibleHeight, 0],
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
-          <FilterBar
-            categories={categoryChips}
-            selectedCategory={activeCategory}
-            onSelectCategory={c => {
-              setSelectedCategory(c);
-              resetListPosition();
-            }}
-            selectedSource={activeSource}
-            onSelectSource={src => {
-              setSelectedSource(src);
-              resetListPosition();
-            }}
-            availableSources={availableSources}
-            searchQuery={searchQuery}
-            onSearchChange={text => {
-              setSearchQuery(text);
-              resetListPosition();
-            }}
+        <View style={styles.listArea}>
+          {/* Main feed: content is padded by the overlay's height */}
+          <AnimatedFlatList
+            ref={listRef}
+            style={{ opacity: heightMeasured ? 1 : 0 }} // hidden until the top block is measured (no first-frame jump)
+            data={filteredArticles}
+            keyExtractor={(item: SummarizedArticle) => item.id}
+            renderItem={renderArticle}
+            initialNumToRender={10}
+            windowSize={9}
+            contentContainerStyle={[styles.listContent, { paddingTop: collapsibleHeight }]}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            scrollEventThrottle={16}
+            onScroll={handleScroll}
+            onContentSizeChange={handleContentSizeChange}
+            onScrollEndDrag={Platform.OS === 'ios' ? handleScrollEndDrag : undefined}
+            refreshControl={
+              Platform.OS !== 'ios' ? (
+                <RefreshControl
+                  refreshing={false} // navbar shows sync state; avoid a second spinner in the middle
+                  onRefresh={() => runSync()}
+                  progressViewOffset={collapsibleHeight}
+                  tintColor={colors.textSecondary}
+                  colors={[colors.accent]}
+                />
+              ) : undefined
+            }
+            // Until storage is read, articles and the key are empty defaults: show nothing rather
+            // than flashing "Add your API key".
+            ListEmptyComponent={
+              loaded ? (
+                <EmptyState
+                  isFiltering={isFilteringActive}
+                  emptyView={emptyView}
+                  caughtUp={hasRealArticles}
+                  needsKey={needsKey}
+                  onOpenSettings={() => setIsSettingsOpen(true)}
+                  isSyncing={syncProgress.isSyncing}
+                  onSync={() => runSync()}
+                  onClearFilter={handleResetFilters}
+                />
+              ) : undefined
+            }
           />
-        </Animated.View>
-      </View>
 
-      {/* Settings Modal */}
-      <SettingsModal
-        visible={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        settings={settings}
-        feeds={feeds}
-        onSaveSettings={saveSettings}
-        onSaveFeeds={saveFeeds}
-        onClearCache={clearCache}
-        onDeleteOlder={deleteOlder}
-        onShowIntro={showIntroAgain}
+          {/* Collapsible overlay: slides up out of view on scroll down */}
+          <Animated.View
+            onLayout={handleCollapsibleLayout}
+            style={[
+              styles.collapsible,
+              {
+                backgroundColor: colors.background,
+                transform: [
+                  {
+                    translateY: reveal.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [-collapsibleHeight, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <FilterBar
+              searchQuery={searchQuery}
+              onSearchChange={text => {
+                setSearchQuery(text);
+                resetListPosition();
+              }}
+            />
+          </Animated.View>
+        </View>
+
+        {/* Settings Modal */}
+        <SettingsModal
+          visible={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+          settings={settings}
+          feeds={feeds}
+          onSaveSettings={saveSettings}
+          onSaveFeeds={saveFeeds}
+          onClearCache={clearCache}
+          onDeleteOlder={deleteOlder}
+          onShowIntro={showIntroAgain}
+        />
+      </SafeAreaView>
+
+      {/* Navigation Drawer */}
+      <Sidebar
+        visible={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+        onClosed={() => {
+          if (pendingSettings.current) {
+            pendingSettings.current = false;
+            setIsSettingsOpen(true);
+          }
+        }}
+        sections={sections}
+        view={view}
+        activeCategory={activeCategory}
+        activeSource={activeSource}
+        onSelectHome={selectHome}
+        onSelectSaved={selectSaved}
+        onSelectRead={selectRead}
+        onSelectCategory={selectCategory}
+        onSelectFeed={selectFeed}
+        onOpenSettings={() => {
+          pendingSettings.current = true;
+          setIsSidebarOpen(false);
+        }}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
   safeArea: {
     flex: 1,
   },

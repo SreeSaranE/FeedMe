@@ -1,16 +1,15 @@
-# Implementation plan: standardise enabled feeds per topic (5 per topic)
+# Implementation plan: sidebar (drawer) navigation
 
 This file is the brief for a fresh CLI agent. Do the tasks **one at a time, in order**. After each task: run the checks in "Checks after every task", tick its box below, add one line to the "Progress log" at the bottom, and **stop and report** before starting the next task unless the user told you to continue.
 
-Earlier plans are finished. This plan changes how many feeds start **enabled** for the topics a user picks. Line numbers and file contents below are accurate as of this writing, but **re-read each file before you edit it** because the user edits files between turns.
+Earlier plans are finished. This plan adds a left sidebar to the feed screen and moves the Viewed, Bookmarks and Settings icons out of the top bar into it. Line numbers and file contents below are accurate as of this writing, but **re-read each file before you edit it** because the user edits files between turns.
 
 ## Checklist
 
-- [x] Task 1: Add the "default feed" flag and make the builders enable only defaults
-- [x] Task 2: Flag 5 default feeds for AI, Engineering, Open Source
-- [x] Task 3: Research and add feeds so every topic has 5 default feeds (verify every URL)
-- [x] Task 4: Verify the numbers with a throwaway script and a trace of the user flows
-- [x] Task 5: Final verification and docs
+- [x] Task 1: Pure helper that builds the sidebar sections (topics, their enabled feeds, unread counts)
+- [x] Task 2: `Sidebar` component (animated drawer, rows, collapsible categories)
+- [x] Task 3: Wire it into the feed screen and slim down the top bar
+- [x] Task 4: Wording ("History"), docs, final verification
 
 ---
 
@@ -19,229 +18,272 @@ Earlier plans are finished. This plan changes how many feeds start **enabled** f
 ### Rules from the project (`AGENTS.md`, must follow)
 
 - Expo / React Native app. Prioritize mobile-first patterns, performance, cross-platform behaviour.
-- `expo` is SDK **58**. **Do not trust memory** for Expo / RN APIs. This plan is plain TypeScript data and logic plus network checks of URLs; no Expo API should be needed. If you reach for one, read `https://docs.expo.dev/versions/v58.0.0/` first.
+- `expo` is SDK **58**, React Native 0.88, React 19.3. **Do not trust memory** for Expo / RN APIs. Before touching one, read `https://docs.expo.dev/versions/v58.0.0/` (or `https://docs.expo.dev/llms.txt`). This plan uses only core React Native APIs (`Animated`, `PanResponder`, `BackHandler`, `AccessibilityInfo`, `useWindowDimensions`) plus packages already installed. Check the RN docs for `PanResponder` and `BackHandler` if unsure.
 - Routes live in `src/app/`; non-route code stays outside it.
-- Install packages only with `npx expo install <pkg>`. **This plan needs no new packages. Do not add any** (no `tsx`, no `ts-node`).
+- Install packages only with `npx expo install <pkg>`. **This plan needs no new packages. Do not add any.** In particular do **not** add `react-native-reanimated`, `react-native-gesture-handler`, `react-native-worklets` or `@react-navigation/drawer` / Expo Router `Drawer`. They exist in `node_modules` only as transitive packages, are not declared dependencies, and would grow the APK we just shrank.
 - Do not create or edit `ios/` or `android/`.
+- Run `npx expo lint` and `npx tsc --noEmit` before declaring any task done.
 
 ### Rules from the user
 
-- Do not commit or push anything unless the user asks. Leave all changes uncommitted.
-- Do only what the current task says. Do not touch the pipeline, Gemini service, UI screens, onboarding screens, article pages, or the migration logic in `storage.ts` (see section 2, point 5).
-- Match the surrounding code: naming, comment density (short comments that say *why*), idioms.
-- If you refer to the user, use they/them.
+- **Do not commit or push anything.** Leave all changes uncommitted.
+- Match the surrounding code: comment density, naming, idiom (functional components, `StyleSheet.create` at the bottom, `useTheme()` colours, `spacing` / `radius` / `type` tokens from `src/theme.ts`, Ionicons imported as `import Ionicons from '@expo/vector-icons/Ionicons'`).
+- Do not write repo files with shell heredocs (apostrophes break them). Use the Write / Edit tools. Throwaway scripts go in the OS temp folder and are deleted afterwards.
+- Use they/them for anyone whose pronouns are not stated.
+- Do only what the current task says. Do not touch the pipeline, Gemini service, storage, onboarding, or the article page.
 
-### Checks after every task
+### What the user asked for (their words)
 
-Run from `D:\11-Projects\03-me\feedMe`:
+The sidebar contains:
 
-```bash
-npx tsc --noEmit        # must print no errors
-npx expo lint           # must print no errors or warnings
+```
+App name        settings icon
+---
+Bookmarks
+History
+---
+Category
+ai  v
+ - TechCrunch
+ - NVIDIA
+ - Open AI
+
+Security  v
+ - Krebs on Security
 ```
 
-At the end of Task 5 also run:
+"after adding these in side bar: viewed, bookmark, settings icons from top navbar should be removed."
 
-```bash
-npx expo-doctor         # expect all checks passed
-npx expo export --platform android --output-dir "$TEMP/feedme-export"   # bundle smoke test; delete the folder afterwards
+---
+
+## 1. How the app is built today (analysis)
+
+### Structure
+
+- Expo Router. `src/app/_layout.tsx` is the root: fonts, `GateProvider`, `Stack.Protected` guards for `(onboarding)` and `(app)`.
+- `src/app/(app)/_layout.tsx` wraps a `Stack` in `AppStateProvider`. Screens: `index.tsx` (the feed) and `article/[id].tsx`.
+- All app state is one hook, `src/hooks/useAppState.ts`, shared through `useApp()` (`src/features/articles/AppStateContext.tsx`). It owns articles, feeds, settings, sync, **and the filter state**.
+- The feed screen `src/app/(app)/index.tsx` (284 lines) renders: `SafeAreaView` > `ActionBar` (`src/components/Header.tsx`) > a `listArea` holding `AnimatedFlatList` and a collapsible overlay with `FilterBar` (search + chips) > `SettingsModal`.
+- `SettingsModal` is a RN `Modal` (`pageSheet`) with internal pages, drafts saved on close. It is opened by `isSettingsOpen` state in `index.tsx`.
+
+### Filter model (important: the sidebar must reuse it, not replace it)
+
+`useAppState` already has four independent pieces of filter state, all exposed:
+
+| State | Setter | Meaning |
+|---|---|---|
+| `showBookmarksOnly` | `setShowBookmarksOnly` | Saved view (bookmarked, read or not) |
+| `showReadOnly` | `setShowReadOnly` | Read view (what the user calls History / Viewed) |
+| `selectedCategory` -> `activeCategory` | `setSelectedCategory` | `'All'`, a topic id (`'ai'`), or `'other'`. Matches `article.category` (set by Gemini, not by the feed) through `articleMatchesTopic` |
+| `selectedSource` -> `activeSource` | `setSelectedSource` | `'All'` or a feed name. Matches `article.sourceName`, which the pipeline sets to `feed.name` (`pipelineService.ts:152`) |
+
+Neither flag set = Home (unread only). `viewArticles` applies the view, then `filteredArticles` applies category, source and search.
+
+Two derived values matter:
+
+- `activeSource` silently falls back to `'All'` when the chosen source has **no articles in the current view** (`availableSources` is built from `viewArticles`). So a sidebar feed row with zero articles must not be tappable, or it would "select" and then show everything.
+- `activeCategory` falls back to `'All'` when its chip is gone.
+
+The chips in `FilterBar` (topic chips, source chips) stay as they are. If the sidebar drives the **same setters**, the chips and the sidebar highlight stay in sync with no new state model. That is the design of this plan. **Do not add a new "selection" state or touch the filter logic in `useAppState.ts`.**
+
+### Topics and feeds
+
+- `src/constants/topics.ts`: `TOPICS` (16, each with `id`, `label`, `icon`, `feeds`), `resolveTopics(ids)` (selected topics in registry order; falls back to defaults), `articleMatchesTopic`.
+- `FeedConfig` (`src/types/index.ts`): `{ id, name, url, enabled, category? }`. For registry feeds `category` is the **topic label** (`'AI'`, set in `buildFeedsForTopics`). Custom feeds added in Settings get `category: 'Custom Feed'` (`FeedsSettings.tsx:45`). A feed listed under two topics (Hacker News) appears once, under the first selected topic that lists it.
+- Selected topics: `settings.selectedTopics`. Enabled feeds: `feeds.filter(f => f.enabled)`.
+
+### Current top bar (`src/components/Header.tsx`, `ActionBar`)
+
+Title "FeedMe" + status/count text on the left; icon buttons: Viewed (`checkmark-done`), Bookmarks (`bookmark`), Sync (`refresh`, spinner while syncing), Settings (`settings-outline`). A 2px sync progress line sits along its bottom edge. `index.tsx` passes the toggle handlers, which also call `resetListPosition()` and clear the other view flag.
+
+### Patterns to follow
+
+- Animations: core `Animated`, `useNativeDriver: true`, `Easing.out(Easing.cubic)`, ~200ms (see `index.tsx` `setRevealed`, `ProgressDots`, `OnboardingTopBar`). Reduce-motion is honoured with `AccessibilityInfo.isReduceMotionEnabled()` plus the `reduceMotionChanged` listener (copy the pattern from `ProgressDots.tsx` / `OnboardingTopBar.tsx`).
+- Theming: `useTheme()` colours, `type.*` text styles (Poppins), hairline separators, rounded `surface` fills. No shadows in dark mode (see `settings/shared.tsx` `Card`).
+- Safe areas: `react-native-safe-area-context` (`useSafeAreaInsets`). The Android app is edge-to-edge.
+- Every touchable has `accessibilityRole` and, for icon-only buttons, `accessibilityLabel`; selected state via `accessibilityState`.
+
+### Design decisions (already made; follow them)
+
+1. **Custom drawer, no navigation library.** Built from `Animated` + `PanResponder`, mounted inside the feed screen.
+2. **Sidebar rows drive the existing filter setters.** Each row = "set all four filter values at once", then `resetListPosition()`, then close the drawer.
+3. **Home row added.** The user's spec has no way back to the unread feed once Bookmarks or History is open. Add a **Home** row (icon `home-outline`) as the first row of the Bookmarks / History group. Tapping the already-active Bookmarks or History row also returns Home (same as the old toggle icons). If the user later wants it removed, it is one line.
+4. **"History" = the existing Read view** (`showReadOnly`). Same data, new name.
+5. **Category row has two tap targets.** Tapping the label selects that topic (`selectedCategory = topic.id`, view = Home, source = All) and closes the drawer. Tapping the chevron (larger hit area) expands or collapses its feeds without selecting.
+6. **Feed rows** select the feed (`selectedSource = feed.name`, category = All, view = Home) and close the drawer. They show the unread count on the right. A feed with 0 unread is dimmed and disabled.
+7. **Which feeds are listed:** only enabled feeds, grouped under the user's selected topics in registry order, by matching `feed.category === topic.label`. Enabled feeds whose category matches no selected topic (custom feeds, or a feed of a topic deselected later) go in a last group named **Custom feeds** whose header only expands/collapses (it is not a category and cannot be selected).
+8. **Expanded state** is in-memory only. Initially collapsed, except the group that holds the active feed or active category, which auto-expands when the drawer opens.
+9. **Opening:** a menu button in the top bar. Closing: tap the dimmed backdrop, swipe the drawer left, Android hardware back, or choosing an item. **No edge-swipe-to-open**: on Android with gesture navigation the screen edge belongs to the system back gesture and the two would fight. (It can be added later.)
+10. **Settings from the sidebar:** close the drawer, then open the existing `SettingsModal` once the close animation has finished (do not animate a drawer and present a modal at the same moment). `SettingsModal` itself is unchanged.
+11. **Top bar after the change:** menu button (left), "FeedMe" + status/count text, Sync button (right). The Viewed, Bookmarks and Settings icons are removed. Sync stays because it is a frequent action and shows sync state.
+
+---
+
+## 2. Tasks
+
+### Task 1: Pure helper that builds the sidebar sections
+
+**New file:** `src/features/sidebar/sections.ts`. Pure TypeScript, no React, no RN imports (so it can be checked with a throwaway script).
+
+```ts
+export interface SidebarFeed {
+  id: string;
+  name: string;      // matches article.sourceName
+  unread: number;    // unread articles from this feed
+}
+
+export interface SidebarSection {
+  key: string;       // topic id, or 'custom'
+  label: string;     // topic.label, or 'Custom feeds'
+  topicId: string | null; // null for the custom group (not selectable)
+  feeds: SidebarFeed[];
+  unread: number;    // sum of its feeds
+}
+
+export function buildSidebarSections(
+  topics: Topic[],             // resolveTopics(settings.selectedTopics)
+  feeds: FeedConfig[],
+  articles: SummarizedArticle[]
+): SidebarSection[]
 ```
 
-There is **no test runner**. Throwaway scripts go in `$TEMP` (never in the repo) and are deleted afterwards. You cannot run the app on a device; say what you could not verify and give the user a short manual test list.
+Rules:
 
-### Environment gotchas
+- Count unread once: build a `Map<string, number>` of `sourceName -> count` over `articles` where `!a.isRead`. Ignore `isSample` articles (they are not real feeds). Then each feed's `unread` is a map lookup (O(articles + feeds), no nested loop).
+- One section per topic in `topics` order. Its feeds are `feeds.filter(f => f.enabled && f.category === topic.label)`, in the order they already have in `feeds`. Keep topics that have zero enabled feeds (the row shows with no children).
+- If any enabled feed belongs to no listed topic, append one `custom` section holding them.
+- A feed name appearing twice (should not happen) must not crash; just list both.
 
-- Windows. Use Bash tool POSIX syntax or PowerShell. **Do not write repo files with shell heredocs** (apostrophes and backticks break them); use the Write / Edit tools. A heredoc for a throwaway script in `$TEMP` is fine if it contains no apostrophes.
-- `src/constants/topics.ts` imports `@expo/vector-icons`, so **it cannot be run directly with node**. For checks, parse the file text (regex) in a throwaway script, or copy the pure functions.
+Also export a tiny helper `sectionHasActive(section, activeCategory, activeSource): boolean` used for the auto-expand rule (true when `section.topicId === activeCategory` or any feed `name === activeSource`).
 
----
+**Checks for this task** (in addition to the standard checks): write a throwaway script in the temp folder (never in the repo) that imports nothing from React Native, feeds the helper a handful of fake topics / feeds / articles, and asserts: grouping, counts, disabled feeds excluded, custom group appears only when needed, read and sample articles not counted. Delete the script afterwards. If importing TS from a script is awkward without new packages, instead re-read the function carefully against these rules and say so in the progress log; do not install anything.
 
-## 1. Project context
+### Task 2: `Sidebar` component
 
-**FeedMe** is a standalone on-device Expo app: RSS feeds for the user's topics, Gemini filters and summarises. Topics and their feeds live in one registry.
+**New files** (keep each small):
 
-### What exists today (verified)
+- `src/components/sidebar/Sidebar.tsx`: the drawer shell (animation, backdrop, gestures, header, scrolling body).
+- `src/components/sidebar/SidebarRows.tsx`: `SidebarRow` (icon + label + optional trailing text, active state), `SectionHeader` (label, chevron button, optional select).
 
-`src/constants/topics.ts`:
+Props of `Sidebar`:
 
-- `TopicFeed { id, name, url, mixed? }`; `Topic { id, label, icon, relevanceHint, keywords?, feeds: TopicFeed[] }`; `TOPICS` has 16 topics; `MAX_TOPICS = 10`; `DEFAULT_TOPIC_IDS = ['ai','engineering','open-source']`.
-- `buildFeedsForTopics(ids)` builds the feed list for a selection: **every** feed of every selected topic with `enabled: true`, deduplicated by feed id (first listing wins).
-- `applyTopicsToFeeds(current, ids)` builds the feeds for a new selection and keeps the user's `enabled` state for feeds that already exist, using `known.get(f.id)?.enabled ?? true` for new ones; custom feeds (ids not in the registry) are kept.
-- `needsKeywordFilter(feedId)`: a feed is keyword pre-filtered if it is custom or flagged `mixed`. `keywordRegexForTopics` unions the `keywords` of the selected topics; only the three tech topics define keywords.
+```ts
+interface SidebarProps {
+  visible: boolean;
+  onClose: () => void;
+  onClosed?: () => void;            // fired after the close animation ends (used to open Settings)
+  sections: SidebarSection[];
+  view: 'home' | 'saved' | 'read';  // from showBookmarksOnly / showReadOnly
+  activeCategory: string;
+  activeSource: string;
+  onSelectHome: () => void;
+  onSelectSaved: () => void;
+  onSelectRead: () => void;
+  onSelectCategory: (topicId: string) => void;
+  onSelectFeed: (feedName: string) => void;
+  onOpenSettings: () => void;
+}
+```
 
-Feed counts per topic now: AI 11, Engineering 9, Open Source 6, Health 4, Sports 4, Security 3, Science 3, Business 3, World News 3, Gaming 3, Movies & TV 3, Music 3, Startups 2, Space 2, Fitness 2, Finance 2. Only one feed id appears under two topics: `hacker-news` (Engineering and Startups, `mixed: true`).
+Behaviour and layout:
 
-Other users of these builders (all must keep working):
+- **Mounting:** hold an internal `mounted` state. Render `null` when `!visible && !mounted`. Animate one `Animated.Value` `progress` (0 closed, 1 open): drawer `translateX` from `-width` to `0`, backdrop `opacity` from 0 to 0.4 (black). Open ~220ms, close ~180ms, `Easing.out(Easing.cubic)`, native driver. On close finish: `setMounted(false)` then `onClosed?.()`.
+- **Reduce motion:** if reduce-motion is on, set the value directly (no timing) but still run the same mount / `onClosed` logic.
+- **Size:** `width = Math.min(320, windowWidth * 0.84)` via `useWindowDimensions`. Full height, absolute-fill overlay (`StyleSheet.absoluteFill`) above everything. Drawer background `colors.background`, a right hairline border `colors.separator`. Backdrop is a `Pressable` over the rest; `accessibilityLabel="Close menu"`.
+- **Safe areas:** use `useSafeAreaInsets()`: `paddingTop: insets.top`, `paddingBottom: insets.bottom`, `paddingLeft: insets.left`. The overlay itself must cover the status bar area, so the screen mounts it **outside** the `SafeAreaView` (Task 3).
+- **Header row** (height 52, like the old bar): `FeedMe` in `type.headline` on the left; on the right a settings icon button (`settings-outline`, 22, 44x44 touch target, `accessibilityLabel="Settings"`) calling `onOpenSettings`.
+- Hairline separator.
+- **Group 1:** `Home` (`home-outline` / `home`), `Bookmarks` (`bookmark-outline` / `bookmark`), `History` (`checkmark-done-outline` / `checkmark-done`). Active row: `colors.surface` pill background, icon and text in `colors.accent`, `accessibilityState={{ selected: true }}`. Home is active when `view === 'home' && activeCategory === 'All' && activeSource === 'All'`.
+- Hairline separator, then a small caption label `Categories` (`type.caption`, `colors.textSecondary`, same look as `SectionLabel` in `settings/shared.tsx` but no need to import it).
+- **Sections:** for each `SidebarSection`, a `SectionHeader` and, if expanded, its feed rows (indented, `type.body`, trailing unread count in `colors.textSecondary`).
+  - Header label tap: calls `onSelectCategory(section.topicId)` (not for the custom group). Chevron button (`chevron-down` / `chevron-up`... use one chevron that rotates or swaps, hit slop 8, `accessibilityLabel` "Expand <label>" / "Collapse <label>", `accessibilityState={{ expanded }}`) toggles expansion. Hide the chevron when the section has no feeds.
+  - Header is active when `view === 'home' && activeCategory === section.topicId && activeSource === 'All'`.
+  - Feed row active when `view === 'home' && activeSource === feed.name`. A feed with `unread === 0`: `opacity 0.4`, `disabled`, no count shown.
+  - Show a section's unread total next to the label only if > 0, muted.
+- **Expanded state:** `useState<Set<string>>`. When the drawer opens (`visible` goes true), expand every section for which `sectionHasActive(...)` is true, **adding to** what is already expanded. Use the "adjust state during render" pattern used in `SettingsModal.tsx` (`wasVisible`) rather than an effect, because the lint rule `react-hooks/set-state-in-effect` is on.
+- **Body:** a `ScrollView` (`showsVerticalScrollIndicator={false}`). A plain `ScrollView` is fine (at most ~10 topics x ~11 feeds, and it only exists while the drawer is mounted).
+- **Gestures:** a `PanResponder` on the drawer container (`useRef(PanResponder.create(...)).current`; follow the RN docs; note that React 19's lint may flag reading refs during render, if so create it with `useMemo` / `useState(() => ...)` initialiser):
+  - `onMoveShouldSetPanResponder`: claim the gesture only when it is clearly horizontal and to the left: `dx < -10 && Math.abs(dx) > Math.abs(dy) * 1.5`. Never claim vertical drags (the list must scroll).
+  - On move: set `progress` to `1 - Math.min(1, -dx / width)`.
+  - On release: if `dx < -width * 0.3` or `vx < -0.5`, close; else animate back to 1.
+- **Hardware back (Android):** while `visible`, register `BackHandler.addEventListener('hardwareBackPress', ...)` that calls `onClose` and returns `true`; remove it on cleanup.
+- **Accessibility:** drawer container `accessibilityViewIsModal` (iOS) and the backdrop labelled; rows as buttons.
+- Fonts and colours only from `useTheme` / `type`; no hard-coded colours except the backdrop black.
 
-- `src/constants/defaultFeeds.ts`: `DEFAULT_FEEDS = buildFeedsForTopics(DEFAULT_TOPIC_IDS)`, `DEFAULT_FEEDS_VERSION = 2`.
-- `src/services/storage.ts`: `getFeeds()` seeds `DEFAULT_FEEDS` on a brand-new install; for an install with an older saved version it adds `DEFAULT_FEEDS` entries that are not yet known; `completeOnboarding()` calls `applyTopicsToFeeds(await this.getFeeds(), topics)`.
-- `src/components/SettingsModal.tsx`: toggling a topic calls `applyTopicsToFeeds`; the Feeds page gets `defaultFeeds={buildFeedsForTopics(topicIds)}` for its **Reset** button.
+The component is presentational: it does **not** read `useApp()`. The screen passes everything in.
 
-### The problem
+### Task 3: Wire into the feed screen, slim down the top bar
 
-Selecting AI + Engineering + Open Source switches on 26 feeds, but a topic like Finance gives 2. The user wants it standardised: **each selected topic contributes 5 enabled feeds**, so for example AI + Open Source + Health gives at most 15 enabled feeds (5 + 5 + 5).
+#### 3a. `src/components/Header.tsx` (`ActionBar`)
 
----
+- Remove props `onSettingsPress`, `showBookmarksOnly`, `onToggleBookmarks`, `onToggleRead` and their three icon buttons. Keep `showReadOnly` and `showBookmarksOnly` **only if still needed for the caption** (see Task 4); otherwise pass a single optional `viewLabel?: string` and use it for the caption prefix. Prefer `viewLabel` (`'History'`, `'Saved'` or undefined); it is simpler than two booleans.
+- Add `onMenuPress: () => void` and a leading menu button: `menu-outline` icon, 22, same `iconButton` style (44x44), `accessibilityLabel="Open menu"`. Place it at the start of the row; the title block follows. Reduce `paddingLeft` so the icon button sits on the same 16px gutter as the list (the icon is centred in 44px, so use `paddingLeft: spacing.xs` on the bar and let the title keep its natural spacing; check visually that the title is not cramped).
+- Keep the Sync button and the progress line exactly as they are. Update the component's doc comment ("app name + count on the left, ... actions").
 
-## 2. Design (decided, do not re-open)
+#### 3b. `src/app/(app)/index.tsx`
 
-1. **A per-feed `default` flag** in the registry. Only default feeds start enabled. Each topic has **exactly 5** default feeds (4 only where, after real searching, no good fifth feed can be found; report each such case).
-2. **Non-default feeds stay in the registry and in the Feeds list, switched off**, so the user can turn them on. Do not delete existing feeds.
-3. `buildFeedsForTopics` sets `enabled: !!f.default`. `applyTopicsToFeeds` keeps the user's saved state for feeds that already exist and, for new ones, uses the feed's default state (not a blanket `true`). Because `DEFAULT_FEEDS` and the Reset button both come from `buildFeedsForTopics`, they follow automatically.
-4. **A feed that appears under more than one topic is never a default** (today only `hacker-news`). Reason: `buildFeedsForTopics` deduplicates by id, first listing wins, so a shared default could be counted for the wrong topic and break "5 per topic". Hacker News therefore stays available (switched off) under Engineering and Startups.
-5. **Existing installs are not changed.** Do **not** bump `DEFAULT_FEEDS_VERSION` and do not edit the migration in `storage.ts`. Anyone who already has feeds enabled keeps exactly their saved states; the new limit only applies when feeds are created from a topic selection (first-run, adding a topic in Settings, Reset). Also keep every existing feed id unchanged for the same reason.
-6. **Custom feeds are never limited or counted.**
-7. **Prefer on-topic feeds** as defaults over general ones that need the keyword pre-filter (`mixed`), and prefer feeds that publish regularly. Do not mark feeds of the non-tech topics `mixed`: `keywordRegexForTopics` would then apply the tech keywords (when a tech topic is also selected) and drop good articles.
-8. **The app's parser reads only RSS 2.0 and Atom.** RSS 1.0 / RDF feeds now fail visibly ("is not an RSS or Atom feed"). Do not add RDF feeds.
+- New state: `const [isSidebarOpen, setIsSidebarOpen] = useState(false);` and a `pendingSettings` ref (`useRef(false)`).
+- Wrap the screen: `return ( <View style={styles.root}> <SafeAreaView ...>...</SafeAreaView> <Sidebar .../> </View> )` with `root: { flex: 1 }` and the background colour. The `Sidebar` must be a sibling **after** the `SafeAreaView`, not inside it. Keep `SettingsModal` where it is.
+- Selection handlers (all call `resetListPosition()` first, then set state, then `setIsSidebarOpen(false)`):
+  - `selectHome`: `setShowBookmarksOnly(false); setShowReadOnly(false); setSelectedCategory('All'); setSelectedSource('All')`. (This is `resetFilters` minus clearing the search text; **keep the search text**, like the old toggles did. Do not call `resetFilters`.)
+  - `selectSaved`: if already in the saved view, behave like `selectHome`; else `setShowBookmarksOnly(true); setShowReadOnly(false); setSelectedCategory('All'); setSelectedSource('All')`.
+  - `selectRead`: same pattern with `showReadOnly`.
+  - `selectCategory(id)`: view flags false, `setSelectedCategory(id)`, `setSelectedSource('All')`.
+  - `selectFeed(name)`: view flags false, `setSelectedCategory('All')`, `setSelectedSource(name)`.
+- Sidebar data: `const topics = useMemo(() => resolveTopics(settings.selectedTopics), [settings.selectedTopics]);` and `const sections = useMemo(() => buildSidebarSections(topics, feeds, articles), [topics, feeds, articles]);`. This needs `articles` from `useApp()` (already exposed by the hook, not yet destructured here). Do not change `useAppState`.
+- `view` prop: `showReadOnly ? 'read' : showBookmarksOnly ? 'saved' : 'home'`.
+- Settings: `onOpenSettings={() => { pendingSettings.current = true; setIsSidebarOpen(false); }}` and `onClosed={() => { if (pendingSettings.current) { pendingSettings.current = false; setIsSettingsOpen(true); } }}`. The `EmptyState` "open settings" button keeps calling `setIsSettingsOpen(true)` directly (the drawer is closed there).
+- `ActionBar` call: remove the removed props, add `onMenuPress={() => setIsSidebarOpen(true)}` and `viewLabel`.
+- Do not change the list, refresh control, collapsible top block or scroll logic.
 
-### Recommended default sets for the three existing big topics (Task 2)
+#### 3c. Behaviour to confirm by reading the code (no device needed, state it in the report)
 
-- **AI (5):** `google-blog-ai`, `openai-news`, `huggingface-blog`, `techcrunch-ai`, `ars-ai`
-- **Engineering (5):** `cloudflare-blog`, `pragmatic-engineer`, `infoq`, `netflix-tech`, `stack-overflow-blog`
-- **Open Source (5):** `github-open-source`, `lwn`, `its-foss`, `linux-foundation`, `openssf`
+- Opening an article from a filtered view and coming back keeps the filter and a closed drawer (state lives in the layout context and the screen's local drawer state).
+- Choosing a category / feed / Bookmarks / History while the search box has text keeps the text.
+- `EmptyState` paths still work: "Back to your feed" calls `handleResetFilters`; unchanged.
 
-If you find a clear reason to swap one (for example a dead feed), say so in the report.
+### Task 4: Wording, docs, final verification
 
----
-
-## 3. Tasks
-
-### Task 1: Add the "default feed" flag and make the builders enable only defaults
-
-**File:** `src/constants/topics.ts` (logic only; no feed data changes yet).
-
-**Do:**
-
-1. Add `default?: boolean` to `TopicFeed` with a one-line comment (starts enabled when the topic is picked; max 5 per topic; never on a feed shared by several topics). Export `DEFAULT_FEEDS_PER_TOPIC = 5` next to `MAX_TOPICS`.
-2. In `buildFeedsForTopics`, set `enabled: !!f.default` instead of `true`.
-3. In `applyTopicsToFeeds`, replace `known.get(f.id)?.enabled ?? true` with `known.get(f.id)?.enabled ?? f.enabled` (the built entry already carries its default state).
-4. Update the comments above both functions to describe the new behaviour (short).
-5. Do not touch `defaultFeeds.ts`, `storage.ts`, or any component.
-
-**Acceptance:** `tsc` and `lint` clean. State plainly in the report that until Task 2 no feed is flagged, so right now **every** new feed list would start with all feeds disabled; this is a temporary state, so do not stop to test the app between Tasks 1 and 2 (continue to Task 2 in the same session if the user allowed it, otherwise say so clearly).
-
----
-
-### Task 2: Flag 5 default feeds for AI, Engineering, Open Source
-
-**File:** `src/constants/topics.ts` (data).
-
-**Do:**
-
-1. Add `default: true` to the 5 feeds listed in section 2 for each of the three topics. No other change to these topics: ids, urls, names, `mixed` flags and order stay as they are.
-2. Confirm `hacker-news` has no `default` under either topic.
-
-**Acceptance:** `tsc` and `lint` clean. Reason it through and report: with AI + Engineering + Open Source (the seeded list for a new install) exactly 15 feeds are enabled and 11 are listed disabled.
-
----
-
-### Task 3: Research and add feeds so every topic has 5 default feeds
-
-**File:** `src/constants/topics.ts` (data). **No unverified URL may be added.**
-
-Topics that need new feeds (current default-eligible count to 5): Health 4 (+1), Sports 4 (+1), Security 3 (+2), Science 3 (+2), Business 3 (+2), World News 3 (+2), Gaming 3 (+2), Movies & TV 3 (+2), Music 3 (+2), Startups 1 non-shared (+4), Space 2 (+3), Fitness 2 (+3), Finance 2 (+3). That is about 28 new feeds. Aim for 5 default per topic; accept 4 only after a real search and say why.
-
-**Candidates to test first** (from memory, **unverified**; replace any that fail):
-
-- Security: Schneier on Security `https://www.schneier.com/feed/atom/`, Ars Technica Security `https://arstechnica.com/security/feed/`, SecurityWeek `https://feeds.feedburner.com/securityweek`, Dark Reading, CISA alerts
-- Startups: Crunchbase News `https://news.crunchbase.com/feed/`, VentureBeat `https://venturebeat.com/feed/`, Y Combinator blog, Product Hunt `https://www.producthunt.com/feed`, TechCrunch Venture
-- Science: Nature `https://www.nature.com/nature.rss`, Science News `https://www.sciencenews.org/feed`, Phys.org, Live Science `https://www.livescience.com/feeds/all`, New Scientist
-- Space: SpaceNews `https://spacenews.com/feed/`, Universe Today `https://www.universetoday.com/feed`, Ars Technica Space `https://arstechnica.com/space/feed/`, NASA APOD, Sky & Telescope
-- Health: Harvard Health, WHO news, Medical News Today, Guardian Health
-- Fitness: Breaking Muscle `https://breakingmuscle.com/feed/`, Verywell Fit, Healthline fitness, Runner's World, Guardian lifestyle/fitness
-- Business: Harvard Business Review, Fast Company `https://www.fastcompany.com/latest/rss`, Forbes Business, Business Insider
-- Finance: Yahoo Finance `https://finance.yahoo.com/news/rssindex`, Investopedia, Seeking Alpha market news, NYT Business
-- World News: NYT World `https://rss.nytimes.com/services/xml/rss/nyt/World.xml`, The Guardian World `https://www.theguardian.com/world/rss`, DW `https://rss.dw.com/rdf/rss-en-all` (RDF: **reject** if it is RDF), France 24
-- Gaming: Kotaku, Eurogamer `https://www.eurogamer.net/feed`, PC Gamer `https://www.pcgamer.com/rss/`, Rock Paper Shotgun `https://www.rockpapershotgun.com/feed`
-- Movies & TV: IndieWire `https://www.indiewire.com/feed/`, Deadline `https://deadline.com/feed/`, /Film `https://www.slashfilm.com/feed/`, Collider
-- Music: Stereogum `https://www.stereogum.com/feed/`, Consequence `https://consequence.net/feed/`, NME, Billboard
-- Sports: Sky Sports, Yahoo Sports, ESPN Cricinfo `https://www.espncricinfo.com/rss/content/story/feeds/0.xml`
-
-**Do:**
-
-1. For every candidate, check it from the shell with the app's own User-Agent:
-
-   ```bash
-   curl -sL -A "FeedMe-Mobile/1.0 (React Native)" -H "Accept: application/rss+xml, application/xml, text/xml, */*" -o "$TEMP/feed.xml" -w "%{http_code} %{content_type}\n" "<url>"
-   ```
-
-   A feed **passes** only if: HTTP 200, the body contains an `<rss` or `<feed` root (not `rdf:RDF`, not HTML), it has at least one `<item` or `<entry`, and its newest item is no more than about 60 days old. Search the web for replacements when a candidate fails. Keep a table (topic, name, url, status, newest item date, pass or fail) for the report.
-2. Add each passing feed to its topic in `TOPICS` with a unique, lowercase, hyphenated `id` that does not collide with any existing id (the ids of existing feeds must not change), a clear `name`, the verified `url`, and `default: true` for the ones that make up the topic's 5 defaults. Extra passing feeds beyond 5 may be added without `default`.
-3. Do **not** set `mixed` on any feed of a non-tech topic (see section 2, point 7). Do not add the same feed id under two topics; if a source is wanted by two topics, use two different feeds (for example a section feed per topic).
-4. Keep entries tidy: same property order and quoting style as the existing entries (use double quotes only around names containing an apostrophe, as `It's FOSS` does).
-5. Delete `$TEMP/feed.xml` and any other temporary files afterwards.
-
-**Acceptance:** `tsc` and `lint` clean; the table is in the report; every topic has exactly 5 default feeds or a stated reason for 4. Flag feeds you consider fragile (Cloudflare-protected, rate-limited, geo-blocked) in the report, because the same network environment may behave differently on a phone.
+- **Wording:** the user calls the read view "History" (and "viewed" before). Make the UI consistent:
+  - Caption prefix in the top bar: `History · 12 articles` / `Saved · 3 articles` (was `Read ·`).
+  - `src/components/EmptyState.tsx` read-view copy: title `No history yet`, body `Articles you have read, or marked as read, will show up here.` Leave the bookmarks copy. Leave the "Back to your feed" button.
+  - The old accessibility labels "Show read articles" / "Show saved articles" disappear with the icons.
+- **README.md:** update the feature list / usage text where it mentions the top-bar icons (Viewed, Bookmarks, Settings) so it describes the sidebar. Keep the same tone and length. If it does not mention them, add one short line.
+- **Search the repo** (`src`, `README.md`) for leftovers: `onSettingsPress`, `onToggleBookmarks`, `onToggleRead`, "Show read articles", "Read ·". Nothing should remain.
+- Full checks, then trace these flows by reading the code and report each as pass or fail:
+  1. Open drawer, tap Bookmarks: saved view, chips reset, drawer closes, caption says `Saved ·`.
+  2. Tap Bookmarks again (reopen the drawer): back to Home.
+  3. Tap History with none read: empty-state "No history yet", "Back to your feed" returns Home.
+  4. Expand a category, tap a feed with unread: list shows only that feed, the source chip is highlighted, Home row not highlighted, feed row highlighted.
+  5. Tap a feed with 0 unread: nothing happens (disabled).
+  6. Tap a category label: topic chip selected, source chip cleared.
+  7. Settings from the drawer: drawer closes, then the Settings modal opens; Done returns to the feed with the drawer closed.
+  8. Android back with drawer open: closes it, does not leave the app.
+  9. User with a custom feed enabled: a `Custom feeds` group appears; its header only expands.
+  10. User deselects a topic in Settings: its section disappears from the drawer; its feeds that remain enabled appear under `Custom feeds`.
 
 ---
 
-### Task 4: Verify the numbers with a throwaway script and a trace of the user flows
+## 3. Checks after every task
 
-**Do:**
+1. `npx tsc --noEmit` (no errors).
+2. `npx expo lint` (no errors; do not add `eslint-disable` except where the code base already uses the same one for the same reason).
+3. Re-read your diff. Confirm no new dependencies in `package.json` and no changes to `app.json`, `ios/`, `android/`.
+4. `git status` shows only files you meant to touch; **nothing committed**.
 
-1. Write a throwaway script in `$TEMP` that reads `src/constants/topics.ts` as text and, for each topic block, extracts the feeds (`id`, `url`, `default`, `mixed`). Report and check:
-   - every topic has between 4 and 5 default feeds, and 5 for all topics unless Task 3 reported otherwise;
-   - no feed id appears under two topics **and** is default;
-   - all feed ids are unique except the known shared `hacker-news`;
-   - no `mixed` feed in a non-tech topic;
-   - the total default count equals the sum over topics.
-2. Trace by reading the code, for each case below, how many feeds end up **enabled** and say why:
+Expected files by the end: new `src/features/sidebar/sections.ts`, `src/components/sidebar/Sidebar.tsx`, `src/components/sidebar/SidebarRows.tsx`; edited `src/components/Header.tsx`, `src/app/(app)/index.tsx`, `src/components/EmptyState.tsx`, `README.md`, `implementation.md` (checklist and log).
 
-| # | Scenario | Expect |
-|---|---|---|
-| 1 | Fresh install, picks AI + Open Source + Health | 15 enabled: 5 + 5 + 5 (seeded AI/OSS feeds keep their default states; Health feeds start from their default flags; Engineering feeds are dropped) |
-| 2 | Fresh install, picks all 10 allowed topics | at most 50 enabled |
-| 3 | Fresh install, picks AI only | 5 enabled, the other 6 AI feeds listed as disabled |
-| 4 | Fresh install, picks Engineering + Startups | 10 enabled; `hacker-news` is listed under both and is disabled |
-| 5 | Existing user with 26 enabled feeds, no change | still 26 enabled; nothing is switched off |
-| 6 | Existing user adds Health in Settings → Topics | their AI/Eng/OSS states unchanged; Health adds 5 enabled |
-| 7 | Settings → Feeds → Reset (topics AI + Health) | 10 enabled; custom feeds removed as the Reset text already says |
-| 8 | User adds a custom feed | not counted, enabled as before |
-| 9 | User switches a non-default feed on by hand | stays on; topic changes later keep that state |
+## 4. Out of scope
 
-3. If any row does not hold, stop and report instead of patching around it.
-
-**Acceptance:** script output and the table (with your reasoning per row) are in the report. Delete the script.
-
----
-
-### Task 5: Final verification and docs
-
-**Do:**
-
-1. Run all four checks (tsc, lint, expo-doctor, Android bundle smoke test; delete the export folder afterwards).
-2. Leftovers: scratch files in the repo (`git status` should show only `src/constants/topics.ts` modified and `implementation.md`, besides whatever the user already had uncommitted); unused exports.
-3. `README.md`: in the Features line "Topic-driven feeds" add that each picked topic starts with 5 feeds enabled and the others are available (switched off) under Settings → Feeds. In the structure block no change is needed.
-4. Give the user a final manual test list and a per-file summary. **Do not commit.** Remind the user that existing installs keep their current feeds on purpose, and how to try the new behaviour (Settings → Feeds → Reset, or a fresh install / clear app data).
-
-**Final manual test list for the user:**
-
-| # | Scenario | Expect |
-|---|---|---|
-| 1 | Fresh install (clear app data), pick AI, Open Source, Health | Settings → Feeds shows 15 enabled of the total |
-| 2 | Pick one topic only | 5 enabled |
-| 3 | Settings → Topics, add one topic | Enabled count grows by 5 |
-| 4 | Settings → Feeds → Reset | Only each topic's 5 defaults are on |
-| 5 | Switch a non-default feed on | It stays on after reopening Settings |
-| 6 | Sync with the new defaults | Articles arrive from the new feeds; failed-feed count stays low |
-| 7 | Existing install | Feeds and their on/off states unchanged |
-
----
-
-## 4. Out of scope (do not do)
-
-- Changing existing users' saved feeds, bumping `DEFAULT_FEEDS_VERSION`, or editing the migration.
-- A new UI (counters, limits, warnings) or changes to onboarding and Settings screens.
-- A hard cap that stops the user from enabling more than 5 feeds per topic; the 5 is only the starting state.
-- Adding RDF or non-RSS/Atom sources, or any package.
-- Changing the sync pipeline, the Gemini service, or committing to git.
+- Edge-swipe to open the drawer (conflicts with Android back gesture).
+- Persisting expanded sections or the last selected view across launches.
+- Changing sync, filters logic, feed registry, the article page, onboarding or Settings pages.
+- A tablet / wide-screen permanent sidebar.
 
 ## 5. Progress log
 
-Add one line per finished task: date, task number, what you did, anything surprising, anything you could not verify.
-- 2026-11-02: Task 1 - Added default?: boolean to TopicFeed, exported DEFAULT_FEEDS_PER_TOPIC = 5, updated buildFeedsForTopics (enabled: !!f.default) and applyTopicsToFeeds (known.get(f.id)?.enabled ?? f.enabled). Currently all new lists start with 0 enabled feeds until Task 2/3 flag them. tsc and lint clean.
-- 2026-11-02: Task 2 - Flagged 5 default feeds each for AI, Engineering, and Open Source. Verified hacker-news has no default. Verified with DEFAULT_TOPIC_IDS that exactly 15 feeds are enabled and 11 disabled. tsc and lint clean.
-- 2026-11-02: Task 3 - Researched and validated candidate feeds across all 13 remaining topics via curl using app User-Agent (HTTP 200, valid RSS/Atom root, item count > 0, publish date <= 60d). Added 29 verified feeds with default: true and flagged existing non-shared feeds as default. Verified all 16 topics now have exactly 5 default feeds (80 total). tsc and lint clean.
-- 2026-11-02: Task 4 - Verified topics registry and feeds with throwaway script (80 total defaults, 5 per topic, hacker-news sole shared non-default, no non-tech mixed feeds). Traced and verified all 9 user flow scenarios. tsc and lint clean.
-- 2026-11-02: Task 5 - All 4 checks passed (tsc, lint, expo-doctor 20/20, Android bundle smoke test exported 1467 modules cleanly). Updated README.md Topic-driven feeds feature line. Verified no scratch files or unexpected git changes.
-
+(Add one line per finished task: task number, what was done, checks result.)
+- 2026-11-03: Task 1 - Created src/features/sidebar/sections.ts with buildSidebarSections and sectionHasActive. Verified with unit tests in $TEMP (unread map O(articles), disabled feeds excluded, isSample/read ignored, custom section appended only when unmapped enabled feeds exist). tsc and lint clean.
+- 2026-11-03: Task 2 - Implemented SidebarRows.tsx (SidebarRow with badge, pill styling, disabled state, and SectionHeader with dual tap targets for topic selection and chevron expansion) and Sidebar.tsx (animated drawer with translate and backdrop fade, reduced motion support, safe area insets, Android hardware back press, left-swipe PanResponder, and auto-expanding active section). tsc and lint clean.
+- 2026-11-03: Task 3 - Updated Header.tsx (ActionBar: added leading menu button, viewLabel support, removed Viewed/Bookmarks/Settings buttons) and wired Sidebar into index.tsx with selection handlers, outside SafeAreaView, settings coordination via onClosed, and viewLabel. Confirmed filter persistence, search text preservation, and EmptyState behavior. tsc and lint clean.
+- 2026-11-03: Task 4 - Updated EmptyState.tsx read-view title to "No history yet", updated README.md with sidebar navigation feature description, confirmed zero leftover references across src/ and README.md, ran full checks (tsc, expo lint, expo-doctor 20/20 clean), and verified all 10 user flows.

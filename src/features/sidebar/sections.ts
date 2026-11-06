@@ -18,7 +18,7 @@ export interface SidebarSection {
 /**
  * Builds the sidebar categories and feed hierarchy.
  * Groups enabled feeds under selected topics in registry order,
- * with any orphaned/custom enabled feeds grouped under a final "Custom feeds" section.
+ * with any orphaned/custom enabled feeds grouped under their category sections.
  */
 export function buildSidebarSections(
   topics: Topic[],
@@ -61,29 +61,43 @@ export function buildSidebarSections(
     });
   }
 
-  const customFeeds: SidebarFeed[] = [];
-  let customUnread = 0;
+  const customCategoryMap = new Map<string, { feeds: SidebarFeed[]; unread: number }>();
 
   for (const f of feeds) {
     if (f.enabled && (!f.category || !topicLabels.has(f.category))) {
+      const cat = f.category?.trim() || 'Default';
       const unread = unreadCounts.get(f.name) ?? 0;
-      customFeeds.push({
+      let group = customCategoryMap.get(cat);
+      if (!group) {
+        group = { feeds: [], unread: 0 };
+        customCategoryMap.set(cat, group);
+      }
+      group.feeds.push({
         id: f.id,
         name: f.name,
         unread,
       });
-      customUnread += unread;
+      group.unread += unread;
     }
   }
 
-  if (customFeeds.length > 0) {
-    sections.push({
-      key: 'custom',
-      label: 'Custom feeds',
-      topicId: null,
-      feeds: customFeeds,
-      unread: customUnread,
-    });
+  const customCatNames = Array.from(customCategoryMap.keys()).sort((a, b) => {
+    if (a === 'Default') return -1;
+    if (b === 'Default') return 1;
+    return a.localeCompare(b);
+  });
+
+  for (const cat of customCatNames) {
+    const group = customCategoryMap.get(cat)!;
+    if (group.feeds.length > 0) {
+      sections.push({
+        key: `custom-${cat.toLowerCase().replace(/\s+/g, '-')}`,
+        label: cat,
+        topicId: null,
+        feeds: group.feeds,
+        unread: group.unread,
+      });
+    }
   }
 
   return sections;

@@ -28,6 +28,7 @@ export const ActionBar: React.FC<ActionBarProps> = ({
   const { colors } = useTheme();
   const iconButton = ({ pressed }: { pressed: boolean }) => [
     styles.iconButton,
+    { paddingLeft: 10 },
     { opacity: pressed ? 0.5 : 1 },
   ];
 
@@ -97,7 +98,7 @@ const styles = StyleSheet.create({
   track: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 2 },
   trackFill: { height: '100%' },
   iconButton: {
-    width: 44,
+    width: 40,
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',

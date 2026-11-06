@@ -12,3 +12,24 @@ export function normalizeFeedUrl(raw: string): string {
 
   return `https://${url}`;
 }
+
+/**
+ * Normalizes a URL for canonical comparison (ignores scheme http/https, host casing, trailing slash).
+ */
+export function normalizeForComparison(raw: string): string {
+  try {
+    const normalized = normalizeFeedUrl(raw);
+    const parsed = new URL(normalized);
+    const pathname = parsed.pathname.replace(/\/+$/, '');
+    return `${parsed.hostname.toLowerCase()}${pathname}${parsed.search}`;
+  } catch {
+    return normalizeFeedUrl(raw).replace(/^https?:\/\//i, '').replace(/\/+$/, '').toLowerCase();
+  }
+}
+
+/**
+ * Checks if two feed URLs point to the same resource.
+ */
+export function areFeedUrlsEqual(a: string, b: string): boolean {
+  return normalizeForComparison(a) === normalizeForComparison(b);
+}

@@ -13,6 +13,7 @@ import {
   TOPICS,
   applyTopicsToFeeds,
   normalizeCategory,
+  sortFeeds,
   withRegistryUrls,
 } from '../constants/topics';
 import { buildSampleArticles } from '../constants/sampleArticles';
@@ -250,7 +251,7 @@ export const StorageService = {
         ]);
       }
       // Pick up corrected feed URLs from the registry (and store them once)
-      const current = withRegistryUrls(feeds);
+      const current = sortFeeds(withRegistryUrls(feeds));
       if (current !== feeds) await this.saveFeeds(current);
       return current;
     } catch {
@@ -260,7 +261,7 @@ export const StorageService = {
 
   async saveFeeds(feeds: FeedConfig[]): Promise<void> {
     try {
-      await AsyncStorage.setItem(KEYS.FEEDS, JSON.stringify(feeds));
+      await AsyncStorage.setItem(KEYS.FEEDS, JSON.stringify(sortFeeds(feeds)));
     } catch (e) {
       console.error('Error saving feeds', e);
     }

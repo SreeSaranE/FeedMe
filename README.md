@@ -7,7 +7,7 @@ Source: https://github.com/SreeSaranE/FeedMe
 ## Features
 
 - **First-run setup**: a short intro, topic selection (up to 10 of 16, e.g. AI, Health, Sports, Finance), and a guide to getting a free Gemini API key. The key step can be skipped.
-- **Topic-driven feeds**: the default feeds, the Gemini relevance prompt and the sidebar sections all follow the topics you picked; each picked topic starts with 5 feeds enabled and the others are available (switched off) under Settings → Feeds. Change them any time in Settings → Topics.
+- **Topic-driven feeds**: the default feeds, the Gemini relevance prompt and the sidebar sections all follow the topics you picked; each picked topic starts with 4 feeds enabled and the others are available (switched off) under Settings → Feeds. Change them any time in Settings → Topics.
 - **Sidebar navigation**: slide-out drawer with Home, Bookmarks, and History views, collapsible topic sections, and individual feed filters with unread counts.
 - **On-device RSS pipeline**: fetches RSS/Atom feeds directly, with a keyword pre-filter for general-interest feeds.
 - **Google Gemini analysis**: 3 concrete takeaways and a "Why it matters" callout per relevant article.

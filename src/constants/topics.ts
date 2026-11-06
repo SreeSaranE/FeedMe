@@ -1,5 +1,6 @@
 import type Ionicons from '@expo/vector-icons/Ionicons';
 import { FeedConfig, SummarizedArticle } from '../types';
+import { areFeedUrlsEqual, normalizeForComparison } from '../utils/url';
 
 export type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -54,7 +55,7 @@ export const TOPICS: Topic[] = [
       { id: 'huggingface-blog', name: 'Hugging Face Blog', url: 'https://huggingface.co/blog/feed.xml', default: true },
       { id: 'simon-willison', name: 'Simon Willison', url: 'https://simonwillison.net/atom/everything/', mixed: true },
       { id: 'techcrunch-ai', name: 'TechCrunch AI', url: 'https://techcrunch.com/category/artificial-intelligence/feed/', default: true },
-      { id: 'ars-ai', name: 'Ars Technica AI', url: 'https://arstechnica.com/ai/feed/', default: true },
+      { id: 'ars-ai', name: 'Ars Technica AI', url: 'https://arstechnica.com/ai/feed/' },
       { id: 'aws-ml', name: 'AWS Machine Learning Blog', url: 'https://aws.amazon.com/blogs/machine-learning/feed/' },
       { id: 'import-ai', name: 'Import AI', url: 'https://importai.substack.com/feed' },
     ],
@@ -76,7 +77,7 @@ export const TOPICS: Topic[] = [
       { id: 'infoq', name: 'InfoQ', url: 'https://feed.infoq.com/', default: true },
       { id: 'martin-fowler', name: 'Martin Fowler', url: 'https://martinfowler.com/feed.atom' },
       { id: 'netflix-tech', name: 'Netflix Tech Blog', url: 'https://netflixtechblog.com/feed', default: true },
-      { id: 'stack-overflow-blog', name: 'Stack Overflow Blog', url: 'https://stackoverflow.blog/feed/', default: true },
+      { id: 'stack-overflow-blog', name: 'Stack Overflow Blog', url: 'https://stackoverflow.blog/feed/' },
       { id: 'github-blog', name: 'GitHub Blog', url: 'https://github.blog/feed/', mixed: true },
       { id: 'bytebytego', name: 'ByteByteGo', url: 'https://blog.bytebytego.com/feed' },
     ],
@@ -96,7 +97,7 @@ export const TOPICS: Topic[] = [
       { id: 'its-foss', name: "It's FOSS", url: 'https://itsfoss.com/feed/', default: true },
       { id: 'linux-foundation', name: 'Linux Foundation', url: 'https://www.linuxfoundation.org/blog/rss.xml', default: true },
       { id: 'the-new-stack', name: 'The New Stack', url: 'https://thenewstack.io/feed/', mixed: true },
-      { id: 'openssf', name: 'OpenSSF Blog', url: 'https://openssf.org/feed/', default: true },
+      { id: 'openssf', name: 'OpenSSF Blog', url: 'https://openssf.org/feed/' },
     ],
   },
   {
@@ -109,7 +110,7 @@ export const TOPICS: Topic[] = [
       { id: 'bleepingcomputer', name: 'BleepingComputer', url: 'https://www.bleepingcomputer.com/feed/', default: true },
       { id: 'the-hacker-news', name: 'The Hacker News', url: 'https://feeds.feedburner.com/TheHackersNews', default: true },
       { id: 'schneier', name: 'Schneier on Security', url: 'https://www.schneier.com/feed/atom/', default: true },
-      { id: 'ars-security', name: 'Ars Technica Security', url: 'https://arstechnica.com/security/feed/', default: true },
+      { id: 'ars-security', name: 'Ars Technica Security', url: 'https://arstechnica.com/security/feed/' },
     ],
   },
   {
@@ -123,7 +124,7 @@ export const TOPICS: Topic[] = [
       { id: 'crunchbase-news', name: 'Crunchbase News', url: 'https://news.crunchbase.com/feed/', default: true },
       { id: 'product-hunt', name: 'Product Hunt', url: 'https://www.producthunt.com/feed', default: true },
       { id: 'techcrunch-venture', name: 'TechCrunch Venture', url: 'https://techcrunch.com/category/venture/feed/', default: true },
-      { id: 'y-combinator', name: 'Y Combinator Blog', url: 'https://www.ycombinator.com/blog/feed', default: true },
+      { id: 'y-combinator', name: 'Y Combinator Blog', url: 'https://www.ycombinator.com/blog/feed' },
     ],
   },
   {
@@ -136,7 +137,7 @@ export const TOPICS: Topic[] = [
       { id: 'quanta', name: 'Quanta Magazine', url: 'https://www.quantamagazine.org/feed/', default: true },
       { id: 'nasa-news', name: 'NASA', url: 'https://www.nasa.gov/feed/', default: true },
       { id: 'science-news', name: 'Science News', url: 'https://www.sciencenews.org/feed', default: true },
-      { id: 'phys-org', name: 'Phys.org', url: 'https://phys.org/rss-feed/', default: true },
+      { id: 'phys-org', name: 'Phys.org', url: 'https://phys.org/rss-feed/' },
     ],
   },
   {
@@ -149,7 +150,7 @@ export const TOPICS: Topic[] = [
       { id: 'nasa-releases', name: 'NASA News Releases', url: 'https://www.nasa.gov/news-release/feed/', default: true },
       { id: 'spacenews', name: 'SpaceNews', url: 'https://spacenews.com/feed/', default: true },
       { id: 'universe-today', name: 'Universe Today', url: 'https://www.universetoday.com/feed', default: true },
-      { id: 'ars-space', name: 'Ars Technica Space', url: 'https://arstechnica.com/space/feed/', default: true },
+      { id: 'ars-space', name: 'Ars Technica Space', url: 'https://arstechnica.com/space/feed/' },
     ],
   },
   {
@@ -162,7 +163,7 @@ export const TOPICS: Topic[] = [
       { id: 'sciencedaily-health', name: 'ScienceDaily Health', url: 'https://www.sciencedaily.com/rss/health_medicine.xml', default: true },
       { id: 'sciencedaily-mind', name: 'ScienceDaily Mind & Brain', url: 'https://www.sciencedaily.com/rss/mind_brain.xml', default: true },
       { id: 'npr-health', name: 'NPR Health', url: 'https://feeds.npr.org/1128/rss.xml', default: true },
-      { id: 'who-news', name: 'WHO News', url: 'https://www.who.int/rss-feeds/news-english.xml', default: true },
+      { id: 'who-news', name: 'WHO News', url: 'https://www.who.int/rss-feeds/news-english.xml' },
     ],
   },
   {
@@ -175,7 +176,7 @@ export const TOPICS: Topic[] = [
       { id: 'self', name: 'SELF', url: 'https://www.self.com/feed/rss', default: true },
       { id: 'runners-world', name: "Runner's World", url: 'https://www.runnersworld.com/rss/all.xml/', default: true },
       { id: 'muscle-and-fitness', name: 'Muscle & Fitness', url: 'https://www.muscleandfitness.com/feed/', default: true },
-      { id: 'guardian-fitness', name: 'The Guardian Fitness', url: 'https://www.theguardian.com/lifeandstyle/fitness/rss', default: true },
+      { id: 'guardian-fitness', name: 'The Guardian Fitness', url: 'https://www.theguardian.com/lifeandstyle/fitness/rss' },
     ],
   },
   {
@@ -188,7 +189,7 @@ export const TOPICS: Topic[] = [
       { id: 'guardian-sport', name: 'The Guardian Sport', url: 'https://www.theguardian.com/sport/rss', default: true },
       { id: 'cbs-sports', name: 'CBS Sports', url: 'https://www.cbssports.com/rss/headlines/', default: true },
       { id: 'espn', name: 'ESPN', url: 'https://www.espn.com/espn/rss/news', default: true },
-      { id: 'sky-sports', name: 'Sky Sports', url: 'https://www.skysports.com/rss/12040', default: true },
+      { id: 'sky-sports', name: 'Sky Sports', url: 'https://www.skysports.com/rss/12040' },
     ],
   },
   {
@@ -201,7 +202,7 @@ export const TOPICS: Topic[] = [
       { id: 'guardian-business', name: 'The Guardian Business', url: 'https://www.theguardian.com/uk/business/rss', default: true },
       { id: 'npr-business', name: 'NPR Business', url: 'https://feeds.npr.org/1006/rss.xml', default: true },
       { id: 'fast-company', name: 'Fast Company', url: 'https://www.fastcompany.com/latest/rss', default: true },
-      { id: 'forbes-business', name: 'Forbes Business', url: 'https://www.forbes.com/business/feed/', default: true },
+      { id: 'forbes-business', name: 'Forbes Business', url: 'https://www.forbes.com/business/feed/' },
     ],
   },
   {
@@ -214,7 +215,7 @@ export const TOPICS: Topic[] = [
       { id: 'marketwatch', name: 'MarketWatch', url: 'https://feeds.marketwatch.com/marketwatch/topstories/', default: true },
       { id: 'seeking-alpha', name: 'Seeking Alpha', url: 'https://seekingalpha.com/market_currents.xml', default: true },
       { id: 'nyt-business', name: 'The New York Times Business', url: 'https://rss.nytimes.com/services/xml/rss/nyt/Business.xml', default: true },
-      { id: 'benzinga', name: 'Benzinga', url: 'https://www.benzinga.com/feed', default: true },
+      { id: 'benzinga', name: 'Benzinga', url: 'https://www.benzinga.com/feed' },
     ],
   },
   {
@@ -227,7 +228,7 @@ export const TOPICS: Topic[] = [
       { id: 'al-jazeera', name: 'Al Jazeera', url: 'https://www.aljazeera.com/xml/rss/all.xml', default: true },
       { id: 'npr-world', name: 'NPR World', url: 'https://feeds.npr.org/1001/rss.xml', default: true },
       { id: 'nyt-world', name: 'The New York Times World', url: 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml', default: true },
-      { id: 'france-24', name: 'France 24', url: 'https://www.france24.com/en/rss', default: true },
+      { id: 'france-24', name: 'France 24', url: 'https://www.france24.com/en/rss' },
     ],
   },
   {
@@ -240,7 +241,7 @@ export const TOPICS: Topic[] = [
       { id: 'gamespot', name: 'GameSpot', url: 'https://www.gamespot.com/feeds/news/', default: true },
       { id: 'ign', name: 'IGN', url: 'https://feeds.feedburner.com/ign/all', default: true },
       { id: 'eurogamer', name: 'Eurogamer', url: 'https://www.eurogamer.net/feed', default: true },
-      { id: 'pc-gamer', name: 'PC Gamer', url: 'https://www.pcgamer.com/rss/', default: true },
+      { id: 'pc-gamer', name: 'PC Gamer', url: 'https://www.pcgamer.com/rss/' },
     ],
   },
   {
@@ -253,7 +254,7 @@ export const TOPICS: Topic[] = [
       { id: 'hollywood-reporter', name: 'The Hollywood Reporter', url: 'https://www.hollywoodreporter.com/feed/', default: true },
       { id: 'guardian-film', name: 'The Guardian Film', url: 'https://www.theguardian.com/film/rss', default: true },
       { id: 'indiewire', name: 'IndieWire', url: 'https://www.indiewire.com/feed/', default: true },
-      { id: 'deadline', name: 'Deadline', url: 'https://deadline.com/feed/', default: true },
+      { id: 'deadline', name: 'Deadline', url: 'https://deadline.com/feed/' },
     ],
   },
   {
@@ -266,7 +267,7 @@ export const TOPICS: Topic[] = [
       { id: 'guardian-music', name: 'The Guardian Music', url: 'https://www.theguardian.com/music/rss', default: true },
       { id: 'pitchfork', name: 'Pitchfork', url: 'https://pitchfork.com/feed/feed-news/rss', default: true },
       { id: 'stereogum', name: 'Stereogum', url: 'https://www.stereogum.com/feed/', default: true },
-      { id: 'consequence', name: 'Consequence', url: 'https://consequence.net/feed/', default: true },
+      { id: 'consequence', name: 'Consequence', url: 'https://consequence.net/feed/' },
     ],
   },
 ];
@@ -294,6 +295,131 @@ export function resolveTopics(ids: string[]): Topic[] {
   return topics.length > 0 ? topics : DEFAULT_TOPIC_IDS.map(id => TOPIC_BY_ID.get(id)!);
 }
 
+const TOPIC_ORDER = new Map(TOPICS.map((t, idx) => [t.label, idx]));
+
+export const DEFAULT_FEED_CATEGORY = 'Default';
+
+export function getFeedCategory(feed: Pick<FeedConfig, 'id' | 'category'>): string {
+  if (feed.category && feed.category.trim()) {
+    if (feed.category.toLowerCase() === 'custom feed' || feed.category.toLowerCase() === 'custom feeds') {
+      return 'Custom feeds';
+    }
+    return feed.category;
+  }
+  const registry = REGISTRY_FEEDS.get(feed.id);
+  return registry ? registry.topic.label : DEFAULT_FEED_CATEGORY;
+}
+
+function getCategoryRank(category: string): number {
+  const topicRank = TOPIC_ORDER.get(category);
+  if (topicRank !== undefined) return topicRank;
+  if (category === DEFAULT_FEED_CATEGORY) return 500;
+  return 1000;
+}
+
+/**
+ * Sorts feeds grouped by category (following topic registry order, then Default, then custom categories),
+ * keeping enabled feeds top and disabled feeds bottom within each category.
+ */
+export function sortFeeds(feeds: FeedConfig[]): FeedConfig[] {
+  const categoryMap = new Map<string, FeedConfig[]>();
+
+  for (const feed of feeds) {
+    const cat = getFeedCategory(feed);
+    let list = categoryMap.get(cat);
+    if (!list) {
+      list = [];
+      categoryMap.set(cat, list);
+    }
+    list.push(feed);
+  }
+
+  const sortedCategories = Array.from(categoryMap.keys()).sort((a, b) => {
+    const rankA = getCategoryRank(a);
+    const rankB = getCategoryRank(b);
+    if (rankA !== rankB) return rankA - rankB;
+    return a.localeCompare(b);
+  });
+
+  const result: FeedConfig[] = [];
+  for (const cat of sortedCategories) {
+    const group = categoryMap.get(cat)!;
+    const sortedGroup = [...group].sort((a, b) => {
+      if (a.enabled === b.enabled) return 0;
+      return a.enabled ? -1 : 1;
+    });
+    result.push(...sortedGroup);
+  }
+  return result;
+}
+
+export interface FeedCategoryGroup {
+  category: string;
+  feeds: FeedConfig[];
+}
+
+export function groupFeedsByCategory(feeds: FeedConfig[]): FeedCategoryGroup[] {
+  const sorted = sortFeeds(feeds);
+  const groups: FeedCategoryGroup[] = [];
+  const map = new Map<string, FeedConfig[]>();
+
+  for (const feed of sorted) {
+    const cat = getFeedCategory(feed);
+    let list = map.get(cat);
+    if (!list) {
+      list = [];
+      map.set(cat, list);
+      groups.push({ category: cat, feeds: list });
+    }
+    list.push(feed);
+  }
+
+  return groups;
+}
+
+/**
+ * Returns available categories for assigning to a feed:
+ * 'Default' first, followed by standard topic categories, then any existing custom categories.
+ */
+export function getAvailableCategories(feeds: FeedConfig[] = []): string[] {
+  const categories = new Set<string>();
+  categories.add(DEFAULT_FEED_CATEGORY);
+
+  for (const feed of feeds) {
+    const cat = getFeedCategory(feed);
+    if (cat) categories.add(cat);
+  }
+
+  for (const topic of TOPICS) {
+    categories.add(topic.label);
+  }
+
+  return Array.from(categories).sort((a, b) => {
+    if (a === DEFAULT_FEED_CATEGORY) return -1;
+    if (b === DEFAULT_FEED_CATEGORY) return 1;
+    const rankA = TOPIC_ORDER.get(a) ?? 999;
+    const rankB = TOPIC_ORDER.get(b) ?? 999;
+    if (rankA !== rankB) return rankA - rankB;
+    return a.localeCompare(b);
+  });
+}
+
+/**
+ * Checks if an RSS link already exists in configured feeds.
+ * Returns the matching feed's name and category if found.
+ */
+export function findDuplicateFeed(
+  url: string,
+  feeds: FeedConfig[]
+): { name: string; category: string } | null {
+  for (const f of feeds) {
+    if (areFeedUrlsEqual(f.url, url)) {
+      return { name: f.name, category: getFeedCategory(f) };
+    }
+  }
+  return null;
+}
+
 // The starting feed list for a set of topics. A feed shared by several topics appears once.
 // Only feeds flagged `default` start enabled (up to 4 per topic); others start disabled.
 export function buildFeedsForTopics(ids: string[]): FeedConfig[] {
@@ -305,7 +431,7 @@ export function buildFeedsForTopics(ids: string[]): FeedConfig[] {
       }
     }
   }
-  return Array.from(feeds.values());
+  return sortFeeds(Array.from(feeds.values()));
 }
 
 // Feeds for a new topic selection: each topic's feeds (keeping the on/off state the user
@@ -313,8 +439,11 @@ export function buildFeedsForTopics(ids: string[]): FeedConfig[] {
 export function applyTopicsToFeeds(current: FeedConfig[], ids: string[]): FeedConfig[] {
   const known = new Map(current.map(f => [f.id, f]));
   const custom = current.filter(f => !isRegistryFeed(f.id));
-  const built = buildFeedsForTopics(ids).map(f => ({ ...f, enabled: known.get(f.id)?.enabled ?? f.enabled }));
-  return [...built, ...custom];
+  const customUrls = new Set(custom.map(f => normalizeForComparison(f.url)));
+  const built = buildFeedsForTopics(ids)
+    .filter(f => !customUrls.has(normalizeForComparison(f.url)))
+    .map(f => ({ ...f, enabled: known.get(f.id)?.enabled ?? f.enabled }));
+  return sortFeeds([...built, ...custom]);
 }
 
 // Adds or removes a topic from a selection. Reports when an add was refused because

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Alert, AppState } from 'react-native';
 import { StorageService, DEFAULT_SETTINGS } from '../services/storage';
-import { resolveTopics, articleMatchesTopic } from '../constants/topics';
+import { resolveTopics, articleMatchesTopic, sortFeeds } from '../constants/topics';
 import { PipelineService } from '../services/pipelineService';
 import { SummarizedArticle, FeedConfig, AppSettings, SyncProgress } from '../types';
 
@@ -115,8 +115,9 @@ export function useAppState() {
   };
 
   const saveFeeds = async (newFeeds: FeedConfig[]) => {
-    await StorageService.saveFeeds(newFeeds);
-    setFeeds(newFeeds);
+    const sorted = sortFeeds(newFeeds);
+    await StorageService.saveFeeds(sorted);
+    setFeeds(sorted);
   };
 
   const deleteOlder = async (days: number) => {

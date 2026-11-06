@@ -12,7 +12,7 @@ import { FeedsSettings } from './settings/FeedsSettings';
 import { DataSettings, parseDays } from './settings/DataSettings';
 import { TopicsSettings } from './settings/TopicsSettings';
 import { AboutSettings } from './settings/AboutSettings';
-import { applyTopicsToFeeds, buildFeedsForTopics, toggleTopicSelection } from '../constants/topics';
+import { applyTopicsToFeeds, buildFeedsForTopics, sortFeeds, toggleTopicSelection } from '../constants/topics';
 
 interface SettingsModalProps {
   visible: boolean;
@@ -57,7 +57,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [articlesPerFeed, setArticlesPerFeed] = useState(settings.articlesPerFeed || 3);
   const [deleteDays, setDeleteDays] = useState(String(settings.deleteOlderThanDays || 10));
   const [autoSync, setAutoSync] = useState(settings.autoSyncOnStart);
-  const [feedList, setFeedList] = useState<FeedConfig[]>(feeds);
+  const [feedList, setFeedList] = useState<FeedConfig[]>(sortFeeds(feeds));
   const [topicIds, setTopicIds] = useState(settings.selectedTopics);
   const [topicLimitHit, setTopicLimitHit] = useState(false);
 
@@ -73,7 +73,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setArticlesPerFeed(settings.articlesPerFeed || 3);
       setDeleteDays(String(settings.deleteOlderThanDays || 10));
       setAutoSync(settings.autoSyncOnStart);
-      setFeedList(feeds);
+      setFeedList(sortFeeds(feeds));
       setTopicIds(settings.selectedTopics);
       setTopicLimitHit(false);
     }

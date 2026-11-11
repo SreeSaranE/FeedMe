@@ -207,7 +207,7 @@ export default function ArticleDetailScreen() {
             <>
               <View style={styles.rawContentWrapper}>
                 <Text style={[type.body, styles.rawContentText, { color: colors.text }]} selectable>
-                  {truncateWords(article.rawContent || article.significance || '', 200)}
+                  {truncateWords(article.rawContent || article.significance || '', 500)}
                 </Text>
               </View>
 

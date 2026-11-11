@@ -16,16 +16,16 @@ const palettes = {
     danger: '#DC2626',
   },
   dark: {
-    background: '#000000',
+    background: '#0B0C10', // obsidian
     surface: '#18181B',
-    grouped: '#000000',
+    grouped: '#0B0C10',
     card: '#18181B',
     text: '#F4F4F5',
     textSecondary: '#A1A1AA',
     textTertiary: '#71717A',
     separator: '#27272A',
     accent: '#60A5FA',
-    onAccent: '#000000',
+    onAccent: '#0B0C10',
     danger: '#F87171',
   },
 } as const;

@@ -11,6 +11,7 @@ interface ActionBarProps {
   progressPercent?: number | null; // thin progress line along the bar's bottom edge
   isSyncing: boolean;
   onSyncPress: () => void;
+  onCustomizePress?: () => void;
   onMenuPress: () => void;
 }
 
@@ -23,12 +24,12 @@ export const ActionBar: React.FC<ActionBarProps> = ({
   progressPercent,
   isSyncing,
   onSyncPress,
+  onCustomizePress,
   onMenuPress,
 }) => {
   const { colors } = useTheme();
   const iconButton = ({ pressed }: { pressed: boolean }) => [
     styles.iconButton,
-    { paddingLeft: 10 },
     { opacity: pressed ? 0.5 : 1 },
   ];
 
@@ -57,20 +58,33 @@ export const ActionBar: React.FC<ActionBarProps> = ({
         </Text>
       </View>
 
-      <Pressable
-        style={iconButton}
-        onPress={onSyncPress}
-        disabled={isSyncing}
-        accessibilityRole="button"
-        accessibilityLabel="Sync feeds"
-        accessibilityState={{ busy: isSyncing }}
-      >
-        {isSyncing ? (
-          <ActivityIndicator size="small" color={colors.textSecondary} />
-        ) : (
-          <Ionicons name="refresh" size={22} color={colors.text} />
+      <View style={styles.actions}>
+        {onCustomizePress && (
+          <Pressable
+            style={iconButton}
+            onPress={onCustomizePress}
+            accessibilityRole="button"
+            accessibilityLabel="Customize feeds"
+          >
+            <Ionicons name="options-outline" size={22} color={colors.text} />
+          </Pressable>
         )}
-      </Pressable>
+
+        <Pressable
+          style={iconButton}
+          onPress={onSyncPress}
+          disabled={isSyncing}
+          accessibilityRole="button"
+          accessibilityLabel="Sync feeds"
+          accessibilityState={{ busy: isSyncing }}
+        >
+          {isSyncing ? (
+            <ActivityIndicator size="small" color={colors.textSecondary} />
+          ) : (
+            <Ionicons name="refresh" size={22} color={colors.text} />
+          )}
+        </Pressable>
+      </View>
 
       {progressPercent != null && (
         <View style={[styles.track, { backgroundColor: colors.separator }]}>
@@ -89,11 +103,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     height: 52,
     paddingLeft: spacing.xs,
-    paddingRight: spacing.sm,
+    paddingRight: spacing.xs,
   },
   title: {
     flex: 1,
     marginLeft: spacing.xs,
+    marginRight: spacing.xs,
+  },
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   track: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 2 },
   trackFill: { height: '100%' },

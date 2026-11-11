@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -19,8 +19,10 @@ import { ActionBar } from '../../components/Header';
 import { ArticleCard } from '../../components/ArticleCard';
 import { FilterBar } from '../../components/FilterBar';
 import { getSyncStatus } from '../../syncStatus';
-import { SettingsModal } from '../../components/SettingsModal';
+import { SettingsModal, SettingsPageType } from '../../components/SettingsModal';
 import { EmptyState } from '../../components/EmptyState';
+import { UpdateBanner } from '../../components/UpdateBanner';
+import { UpdateService, UpdateInfo } from '../../services/updateService';
 import { useApp } from '../../features/articles/AppStateContext';
 import { useGate } from '../../features/onboarding/OnboardingContext';
 import { resolveTopics, TOPICS } from '../../constants/topics';
@@ -69,8 +71,40 @@ export default function FeedScreen() {
 
   // Modals & Navigation
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+  const [settingsInitialPage, setSettingsInitialPage] = useState<SettingsPageType>('home');
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const pendingSettings = useRef(false);
+
+  // App Update Check
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    UpdateService.checkForUpdate({ force: false })
+      .then(info => {
+        if (!isMounted || !info) return;
+        if (info.isAvailable && !info.isDismissed) {
+          setUpdateInfo(info);
+        }
+      })
+      .catch(() => undefined);
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleDismissUpdate = useCallback(async () => {
+    if (updateInfo?.latestVersion) {
+      await UpdateService.dismissVersion(updateInfo.latestVersion);
+      setUpdateInfo(prev => (prev ? { ...prev, isDismissed: true } : null));
+    }
+  }, [updateInfo]);
+
+  const handleOpenCustomizeFeed = useCallback(() => {
+    setSettingsInitialPage('feeds');
+    setIsSettingsOpen(true);
+  }, []);
 
   const topics = useMemo(
     () => resolveTopics(settings.selectedTopics),
@@ -277,6 +311,7 @@ export default function FeedScreen() {
           progressPercent={syncStatus.percent}
           isSyncing={syncProgress.isSyncing}
           onSyncPress={() => runSync()}
+          onCustomizePress={handleOpenCustomizeFeed}
           onMenuPress={() => setIsSidebarOpen(true)}
         />
 
@@ -320,7 +355,10 @@ export default function FeedScreen() {
                   emptyView={emptyView}
                   caughtUp={hasRealArticles}
                   needsKey={needsKey}
-                  onOpenSettings={() => setIsSettingsOpen(true)}
+                  onOpenSettings={() => {
+                    setSettingsInitialPage('home');
+                    setIsSettingsOpen(true);
+                  }}
                   isSyncing={syncProgress.isSyncing}
                   onSync={() => runSync()}
                   onClearFilter={handleResetFilters}
@@ -354,12 +392,17 @@ export default function FeedScreen() {
                 resetListPosition();
               }}
             />
+            <UpdateBanner
+              update={updateInfo}
+              onDismiss={handleDismissUpdate}
+            />
           </Animated.View>
         </View>
 
         {/* Settings Modal */}
         <SettingsModal
           visible={isSettingsOpen}
+          initialPage={settingsInitialPage}
           onClose={() => setIsSettingsOpen(false)}
           settings={settings}
           feeds={feeds}
@@ -391,6 +434,7 @@ export default function FeedScreen() {
         onSelectCategory={selectCategory}
         onSelectFeed={selectFeed}
         onOpenSettings={() => {
+          setSettingsInitialPage('home');
           pendingSettings.current = true;
           setIsSidebarOpen(false);
         }}

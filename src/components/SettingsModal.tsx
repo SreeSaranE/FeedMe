@@ -15,8 +15,11 @@ import { AboutSettings } from './settings/AboutSettings';
 import { applyTopicsToFeeds, buildFeedsForTopics, sortFeeds, toggleTopicSelection } from '../constants/topics';
 import { GeminiService } from '../services/geminiService';
 
+export type SettingsPageType = 'home' | 'api' | 'topics' | 'feeds' | 'data' | 'about';
+
 interface SettingsModalProps {
   visible: boolean;
+  initialPage?: SettingsPageType;
   onClose: () => void;
   settings: AppSettings;
   feeds: FeedConfig[];
@@ -27,7 +30,7 @@ interface SettingsModalProps {
   onShowIntro: () => void;
 }
 
-type Page = 'home' | 'api' | 'topics' | 'feeds' | 'data' | 'about';
+type Page = SettingsPageType;
 
 const PAGE_TITLES: Record<Page, string> = {
   home: 'Settings',
@@ -40,6 +43,7 @@ const PAGE_TITLES: Record<Page, string> = {
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   visible,
+  initialPage = 'home',
   onClose,
   settings,
   feeds,
@@ -50,7 +54,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onShowIntro,
 }) => {
   const { colors } = useTheme();
-  const [page, setPage] = useState<Page>('home');
+  const [page, setPage] = useState<Page>(initialPage);
 
   // Drafts are edited across pages and saved together when the sheet closes.
   const [apiKey, setApiKey] = useState(settings.geminiApiKey);
@@ -69,7 +73,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   if (visible !== wasVisible) {
     setWasVisible(visible);
     if (visible) {
-      setPage('home');
+      setPage(initialPage);
       setApiKey(settings.geminiApiKey);
       setModel(settings.geminiModel);
       setArticlesPerFeed(settings.articlesPerFeed || 3);
@@ -158,7 +162,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   // Hardware back / swipe-down: step back through pages before closing.
   const handleBack = () => {
     if (checkingKey) return;
-    if (page === 'home') handleSaveAndClose();
+    if (page === 'home' || page === initialPage) handleSaveAndClose();
     else setPage('home');
   };
 
@@ -177,7 +181,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       <Frame>
         <View style={styles.header}>
           <View style={styles.side}>
-            {page !== 'home' && (
+            {page !== 'home' && page !== initialPage && (
               <Pressable
                 onPress={() => setPage('home')}
                 disabled={checkingKey}

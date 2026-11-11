@@ -2,7 +2,7 @@
  * Truncates text to a maximum number of words.
  * Strips HTML tags, decodes common entities, and collapses whitespace.
  */
-export function truncateWords(text: string, maxWords = 200): string {
+export function truncateWords(text: string, maxWords = 500): string {
   if (!text) return '';
   const clean = text
     .replace(/<[^>]+>/g, ' ')

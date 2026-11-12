@@ -235,9 +235,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               onPress={() => setPage('feeds')}
             />
             <NavRow
-              icon="trash-outline"
+              icon="archive-outline"
               title="Data Management"
-              subtitle={`Delete after ${parseDays(deleteDays) ?? settings.deleteOlderThanDays} days · cache`}
+              subtitle="Import/export feeds · storage"
               onPress={() => setPage('data')}
             />
             </Card>
@@ -294,6 +294,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             days={deleteDays}
             onDaysChange={setDeleteDays}
             onDeleteOlder={onDeleteOlder}
+            feeds={feedList}
+            onFeedsChange={async newFeeds => {
+              setFeedList(newFeeds);
+              await onSaveFeeds(newFeeds);
+            }}
           />
         )}
       </Frame>

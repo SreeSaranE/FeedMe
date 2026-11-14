@@ -4,6 +4,7 @@ export interface FeedConfig {
   url: string;
   enabled: boolean;
   category?: string;
+  iconUrl?: string;
 }
 
 export interface RawFeedEntry {

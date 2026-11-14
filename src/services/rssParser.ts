@@ -2,12 +2,14 @@ import { XMLParser } from 'fast-xml-parser';
 import { RawFeedEntry } from '../types';
 import { fetchTextWithTimeout } from './http';
 import { normalizeFeedUrl } from '../utils/url';
+import { resolveRelativeUrl } from '../utils/feedLogo';
 import { TOPICS } from '../constants/topics';
 
 export interface ResolvedFeed {
   feedUrl: string;
   feedTitle?: string;
   entries: RawFeedEntry[];
+  iconUrl?: string;
 }
 
 const USER_AGENT = 'FeedMe-Mobile/1.0 (React Native)';
@@ -160,11 +162,55 @@ function normalizeLink(linkData: any): string {
   return '';
 }
 
+function extractFeedIcon(container: any, feedUrl?: string): string | undefined {
+  if (!container || typeof container !== 'object') return undefined;
+
+  let rawUrl = '';
+
+  // 1. Check <icon>
+  if (container.icon) {
+    const icon = Array.isArray(container.icon) ? container.icon[0] : container.icon;
+    rawUrl = (typeof icon === 'string' ? icon : icon?.['#text'] || '').trim();
+  }
+
+  // 2. Check <image>
+  if (!rawUrl && container.image) {
+    const img = Array.isArray(container.image) ? container.image[0] : container.image;
+    if (typeof img === 'string') {
+      rawUrl = img.trim();
+    } else if (img && typeof img === 'object') {
+      const u = img.url ?? img['#text'];
+      rawUrl = (typeof u === 'string' ? u : u?.['#text'] || '').trim();
+    }
+  }
+
+  // 3. Check <logo>
+  if (!rawUrl && container.logo) {
+    const logo = Array.isArray(container.logo) ? container.logo[0] : container.logo;
+    rawUrl = (typeof logo === 'string' ? logo : logo?.['#text'] || '').trim();
+  }
+
+  // 4. Check <itunes:image>
+  if (!rawUrl && container['itunes:image']) {
+    const itunes = Array.isArray(container['itunes:image']) ? container['itunes:image'][0] : container['itunes:image'];
+    rawUrl = (itunes?.['@_href'] || itunes?.['#text'] || '').trim();
+  }
+
+  if (!rawUrl) return undefined;
+
+  if (feedUrl && (rawUrl.startsWith('/') || !/^https?:\/\//i.test(rawUrl))) {
+    return resolveRelativeUrl(rawUrl, feedUrl);
+  }
+
+  return rawUrl;
+}
+
 export function parseFeedXml(
   xmlText: string,
   feedName: string,
-  limit = 4
-): { title: string; entries: RawFeedEntry[] } {
+  limit = 4,
+  feedUrl?: string
+): { title: string; entries: RawFeedEntry[]; iconUrl?: string } {
   let jsonObj: any;
   try {
     jsonObj = parser.parse(xmlText);
@@ -180,6 +226,7 @@ export function parseFeedXml(
     const channel = jsonObj.rss.channel;
     const rawTitle = channel.title;
     title = cleanHtmlText(typeof rawTitle === 'string' ? rawTitle : rawTitle?.['#text'] || '');
+    const iconUrl = extractFeedIcon(channel, feedUrl);
 
     if (channel.item) {
       const items = Array.isArray(channel.item) ? channel.item : [channel.item];
@@ -214,13 +261,14 @@ export function parseFeedXml(
         }
       }
     }
-    return { title, entries };
+    return { title, entries, iconUrl: iconUrl || undefined };
   }
 
   // Atom format
   if (jsonObj.feed) {
     const rawTitle = jsonObj.feed.title;
     title = cleanHtmlText(typeof rawTitle === 'string' ? rawTitle : rawTitle?.['#text'] || '');
+    const iconUrl = extractFeedIcon(jsonObj.feed, feedUrl);
 
     if (jsonObj.feed.entry) {
       const items = Array.isArray(jsonObj.feed.entry) ? jsonObj.feed.entry : [jsonObj.feed.entry];
@@ -255,15 +303,20 @@ export function parseFeedXml(
         }
       }
     }
-    return { title, entries };
+    return { title, entries, iconUrl: iconUrl || undefined };
   }
 
   throw new Error(`${feedName} is not an RSS or Atom feed`);
 }
 
 export const RssParserService = {
-  async fetchFeedEntries(feedName: string, feedUrl: string, limit = 4): Promise<RawFeedEntry[]> {
-    const response = await fetchTextWithTimeout(normalizeFeedUrl(feedUrl), {
+  async fetchFeedWithMeta(
+    feedName: string,
+    feedUrl: string,
+    limit = 4
+  ): Promise<{ entries: RawFeedEntry[]; iconUrl?: string }> {
+    const normalized = normalizeFeedUrl(feedUrl);
+    const response = await fetchTextWithTimeout(normalized, {
       headers: {
         'User-Agent': USER_AGENT,
         'Accept': 'application/rss+xml, application/xml, text/xml, */*'
@@ -274,7 +327,12 @@ export const RssParserService = {
       throw new Error(`HTTP ${response.status} fetching ${feedName}`);
     }
 
-    const { entries } = parseFeedXml(response.text, feedName, limit);
+    const { entries, iconUrl } = parseFeedXml(response.text, feedName, limit, normalized);
+    return { entries, iconUrl };
+  },
+
+  async fetchFeedEntries(feedName: string, feedUrl: string, limit = 4): Promise<RawFeedEntry[]> {
+    const { entries } = await this.fetchFeedWithMeta(feedName, feedUrl, limit);
     return entries;
   },
 
@@ -298,9 +356,9 @@ export const RssParserService = {
       if (response.ok) {
         initialText = response.text;
         try {
-          const { title, entries } = parseFeedXml(initialText, feedName, limit);
+          const { title, entries, iconUrl } = parseFeedXml(initialText, feedName, limit, normalized);
           if (entries.length > 0) {
-            return { feedUrl: normalized, feedTitle: title, entries };
+            return { feedUrl: normalized, feedTitle: title, entries, iconUrl };
           }
         } catch {
           // Response was not valid RSS/Atom XML directly; proceed to discovery
@@ -392,9 +450,9 @@ export const RssParserService = {
         );
 
         if (response.ok) {
-          const { title, entries } = parseFeedXml(response.text, feedName, limit);
+          const { title, entries, iconUrl } = parseFeedXml(response.text, feedName, limit, candidateUrl);
           if (entries.length > 0) {
-            return { feedUrl: candidateUrl, feedTitle: title, entries };
+            return { feedUrl: candidateUrl, feedTitle: title, entries, iconUrl };
           }
         }
       } catch {

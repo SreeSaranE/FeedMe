@@ -1,10 +1,12 @@
 import type { FeedConfig, SummarizedArticle } from '../../types';
 import type { Topic } from '../../constants/topics';
+import { getFeedLogoUrl } from '../../utils/feedLogo';
 
 export interface SidebarFeed {
   id: string;
   name: string; // matches article.sourceName
   unread: number; // unread articles from this feed
+  iconUrl?: string | null;
 }
 
 export interface SidebarSection {
@@ -47,6 +49,7 @@ export function buildSidebarSections(
           id: f.id,
           name: f.name,
           unread,
+          iconUrl: getFeedLogoUrl(f),
         });
         sectionUnread += unread;
       }
@@ -76,6 +79,7 @@ export function buildSidebarSections(
         id: f.id,
         name: f.name,
         unread,
+        iconUrl: getFeedLogoUrl(f),
       });
       group.unread += unread;
     }

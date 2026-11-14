@@ -13,6 +13,7 @@ export interface TopicFeed {
   mixed?: boolean;
   // Starts enabled when the topic is picked; max 4 per topic; never on a feed shared by several topics.
   default?: boolean;
+  iconUrl?: string;
 }
 
 export interface Topic {
@@ -427,7 +428,14 @@ export function buildFeedsForTopics(ids: string[]): FeedConfig[] {
   for (const topic of resolveTopics(ids)) {
     for (const f of topic.feeds) {
       if (!feeds.has(f.id)) {
-        feeds.set(f.id, { id: f.id, name: f.name, url: f.url, enabled: !!f.default, category: topic.label });
+        feeds.set(f.id, {
+          id: f.id,
+          name: f.name,
+          url: f.url,
+          enabled: !!f.default,
+          category: topic.label,
+          iconUrl: f.iconUrl,
+        });
       }
     }
   }
@@ -442,7 +450,11 @@ export function applyTopicsToFeeds(current: FeedConfig[], ids: string[]): FeedCo
   const customUrls = new Set(custom.map(f => normalizeForComparison(f.url)));
   const built = buildFeedsForTopics(ids)
     .filter(f => !customUrls.has(normalizeForComparison(f.url)))
-    .map(f => ({ ...f, enabled: known.get(f.id)?.enabled ?? f.enabled }));
+    .map(f => ({
+      ...f,
+      enabled: known.get(f.id)?.enabled ?? f.enabled,
+      iconUrl: known.get(f.id)?.iconUrl ?? f.iconUrl,
+    }));
   return sortFeeds([...built, ...custom]);
 }
 

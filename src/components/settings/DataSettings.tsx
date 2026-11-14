@@ -108,6 +108,7 @@ export const DataSettings: React.FC<Props> = ({
         url: parsedFeed.url,
         enabled: true,
         category: matchedCategory,
+        iconUrl: parsedFeed.iconUrl,
       });
     }
 

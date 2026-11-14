@@ -46,6 +46,9 @@ export function useAppState() {
         setArticles
       );
       setArticles(result.allArticles);
+      if (result.updatedFeeds) {
+        setFeeds(result.updatedFeeds);
+      }
       resumeWhenActiveRef.current = !!result.offline;
       if (result.missingApiKey && !silent && result.allArticles.length === 0) {
         Alert.alert('API key needed', 'Add your Gemini API key in Settings → API Settings to sync articles.');

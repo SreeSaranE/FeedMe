@@ -7,6 +7,7 @@ export interface ParsedOpmlFeed {
   url: string;
   category: string;
   htmlUrl?: string;
+  iconUrl?: string;
 }
 
 export interface ParseOpmlResult {
@@ -68,8 +69,9 @@ export class OpmlService {
       for (const feed of categoryFeeds) {
         const escapedName = escapeXml(feed.name || 'Untitled Feed');
         const escapedUrl = escapeXml(feed.url);
+        const iconAttr = feed.iconUrl ? ` icon="${escapeXml(feed.iconUrl)}"` : '';
         outlinesXml.push(
-          `      <outline type="rss" text="${escapedName}" title="${escapedName}" xmlUrl="${escapedUrl}" />`
+          `      <outline type="rss" text="${escapedName}" title="${escapedName}" xmlUrl="${escapedUrl}"${iconAttr} />`
         );
       }
 
@@ -170,11 +172,20 @@ export class OpmlService {
 
           const htmlUrl = typeof htmlUrlRaw === 'string' ? htmlUrlRaw.trim() : undefined;
 
+          const iconUrlRaw =
+            node['@_icon'] ??
+            node['@_imageHref'] ??
+            node['@_imagehref'] ??
+            node['@_favicon'];
+
+          const iconUrl = typeof iconUrlRaw === 'string' ? iconUrlRaw.trim() : undefined;
+
           extractedFeeds.push({
             name: feedName,
             url: finalUrl,
             category: category || DEFAULT_IMPORT_CATEGORY,
             htmlUrl,
+            iconUrl,
           });
 
           discoveredCategories.add(category || DEFAULT_IMPORT_CATEGORY);

@@ -111,6 +111,7 @@ export const FeedsSettings: React.FC<Props> = ({
 
     let resolvedUrl = feedUrl;
     let finalFeedName = name.trim();
+    let resolvedIconUrl: string | undefined;
 
     try {
       const resolved = await RssParserService.resolveFeed(name.trim(), feedUrl, 1);
@@ -120,6 +121,7 @@ export const FeedsSettings: React.FC<Props> = ({
         return;
       }
       resolvedUrl = resolved.feedUrl;
+      resolvedIconUrl = resolved.iconUrl;
       if (!finalFeedName && resolved.feedTitle) {
         finalFeedName = resolved.feedTitle.trim();
       }
@@ -160,6 +162,7 @@ export const FeedsSettings: React.FC<Props> = ({
           url: resolvedUrl,
           enabled: true,
           category: resolvedCategory,
+          iconUrl: resolvedIconUrl,
         },
       ])
     );

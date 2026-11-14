@@ -368,6 +368,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           <SidebarRow
                             key={feed.id}
                             label={feed.name}
+                            logoUrl={feed.iconUrl}
                             badge={feed.unread}
                             indented
                             active={isFeedActive}

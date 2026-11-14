@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { Image } from 'expo-image';
 import { useTheme, spacing, radius, type } from '../../theme';
 
 export interface SidebarRowProps {
   icon?: keyof typeof Ionicons.glyphMap;
+  logoUrl?: string | null;
   label: string;
   badge?: number | null;
   active?: boolean;
@@ -16,6 +18,7 @@ export interface SidebarRowProps {
 
 export const SidebarRow: React.FC<SidebarRowProps> = ({
   icon,
+  logoUrl,
   label,
   badge,
   active = false,
@@ -25,6 +28,9 @@ export const SidebarRow: React.FC<SidebarRowProps> = ({
   accessibilityLabel,
 }) => {
   const { colors } = useTheme();
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+
+  const showLogo = Boolean(logoUrl && failedUrl !== logoUrl);
 
   return (
     <Pressable
@@ -41,7 +47,15 @@ export const SidebarRow: React.FC<SidebarRowProps> = ({
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{ selected: active, disabled }}
     >
-      {icon ? (
+      {showLogo ? (
+        <Image
+          source={{ uri: logoUrl! }}
+          style={styles.rowLogo}
+          contentFit="contain"
+          transition={100}
+          onError={() => setFailedUrl(logoUrl ?? null)}
+        />
+      ) : icon ? (
         <Ionicons
           name={icon}
           size={20}
@@ -172,6 +186,12 @@ const styles = StyleSheet.create({
   },
   rowIcon: {
     marginRight: spacing.md,
+  },
+  rowLogo: {
+    width: 18,
+    height: 18,
+    borderRadius: 4,
+    marginRight: spacing.sm,
   },
   rowLabel: {
     flex: 1,

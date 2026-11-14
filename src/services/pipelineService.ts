@@ -30,6 +30,7 @@ export const PipelineService = {
     allArticles: SummarizedArticle[];
     missingApiKey?: boolean;
     offline?: boolean;
+    updatedFeeds?: FeedConfig[];
   }> {
     const feeds = await StorageService.getFeeds();
     const settings = await StorageService.getSettings();
@@ -52,6 +53,7 @@ export const PipelineService = {
     const enabledFeeds = feeds.filter(f => f.enabled);
     let articlesSummarized = 0;
     let newArticles: SummarizedArticle[] = [];
+    let feedsModified = false;
     let quotaMessage: string | undefined;
     let fatalMessage: string | undefined;
     // No connection: stop instead of failing every remaining feed and article one by one.
@@ -115,11 +117,15 @@ export const PipelineService = {
       const prefilter = needsKeywordFilter(feed.id) ? keywordRegex : null;
 
       try {
-        const entries = await RssParserService.fetchFeedEntries(
+        const { entries, iconUrl } = await RssParserService.fetchFeedWithMeta(
           feed.name,
           feed.url,
           settings.articlesPerFeed || 3
         );
+        if (iconUrl && iconUrl !== feed.iconUrl) {
+          feed.iconUrl = iconUrl;
+          feedsModified = true;
+        }
         consecutiveFeedNetworkErrors = 0;
 
         for (const entry of entries) {
@@ -240,6 +246,10 @@ export const PipelineService = {
 
     await commit();
 
+    if (feedsModified) {
+      await StorageService.saveFeeds(feeds);
+    }
+
     const completionStatus = offline
       ? `No internet connection. ${articlesSummarized} new articles added; the rest will retry next sync.`
       : fatalMessage
@@ -257,6 +267,7 @@ export const PipelineService = {
       offline,
       allArticles: wasCleared() ? [] : latestArticles,
       missingApiKey: !hasApiKey,
+      updatedFeeds: feedsModified ? feeds : undefined,
     };
   },
 

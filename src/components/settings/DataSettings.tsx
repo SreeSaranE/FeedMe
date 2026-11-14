@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, TextInput, Pressable, Alert, StyleSheet } from 'react-native';
+import { View, Text, TextInput, Pressable, Alert, StyleSheet, Platform } from 'react-native';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
+import { File } from 'expo-file-system';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Clipboard from 'expo-clipboard';
 import { OpmlService, DEFAULT_IMPORT_CATEGORY } from '../../services/opmlService';
@@ -130,11 +131,55 @@ export const DataSettings: React.FC<Props> = ({
     );
   };
 
+  const readPickedFile = async (uri: string): Promise<string> => {
+    // 1. Try modern File API from expo-file-system (native support for both content:// and file://)
+    try {
+      const file = new File(uri);
+      const content = await file.text();
+      if (content) return content;
+    } catch (err) {
+      console.warn('[readPickedFile] File.text() error:', err);
+    }
+
+    // 2. If content:// on Android, try copying to app cache directory first to bridge scoping boundaries
+    if (uri.startsWith('content://')) {
+      const tempUri = `${FileSystem.cacheDirectory}opml-import-${Date.now()}.opml`;
+      try {
+        await FileSystem.copyAsync({ from: uri, to: tempUri });
+        const content = await FileSystem.readAsStringAsync(tempUri, { encoding: 'utf8' });
+        return content;
+      } catch (err) {
+        console.warn('[readPickedFile] copyAsync fallback error:', err);
+      } finally {
+        await FileSystem.deleteAsync(tempUri, { idempotent: true }).catch(() => {});
+      }
+    }
+
+    // 3. Try legacy FileSystem.readAsStringAsync directly
+    try {
+      return await FileSystem.readAsStringAsync(uri, { encoding: 'utf8' });
+    } catch (err) {
+      console.warn('[readPickedFile] FileSystem.readAsStringAsync error:', err);
+    }
+
+    // 4. Try fetch() as a final fallback
+    try {
+      const res = await fetch(uri);
+      return await res.text();
+    } catch (err) {
+      console.warn('[readPickedFile] fetch fallback error:', err);
+    }
+
+    throw new Error(`Unable to read picked file at URI: ${uri}`);
+  };
+
   const handleImportOpml = async () => {
     try {
       const pickerResult = await DocumentPicker.getDocumentAsync({
         type: ['*/*'],
-        copyToCacheDirectory: true,
+        // On iOS, copying to cache gives safe sandbox access.
+        // On Android, leaving as content:// avoids Expo Go's unscoped host cache permission rejection.
+        copyToCacheDirectory: Platform.OS === 'ios',
       });
 
       if (pickerResult.canceled || !pickerResult.assets || pickerResult.assets.length === 0) {
@@ -142,7 +187,7 @@ export const DataSettings: React.FC<Props> = ({
       }
 
       const fileUri = pickerResult.assets[0].uri;
-      const fileContent = await FileSystem.readAsStringAsync(fileUri);
+      const fileContent = await readPickedFile(fileUri);
       await processImportedOpml(fileContent);
     } catch (err) {
       console.warn('Error reading OPML file:', err);

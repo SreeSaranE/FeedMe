@@ -475,18 +475,93 @@ export function toggleTopicSelection(
 
 const isRegistryFeed = (feedId: string) => REGISTRY_FEEDS.has(feedId);
 
+export const KNOWN_FEED_URL_REDIRECTS: Record<string, string> = {
+  // Google DeepMind
+  'https://deepmind.google/news/rss.xml': 'https://deepmind.google/blog/rss.xml',
+  'https://deepmind.google/news/rss.xml/': 'https://deepmind.google/blog/rss.xml',
+  'https://deepmind.com/blog/rss.xml': 'https://deepmind.google/blog/rss.xml',
+  'https://deepmind.com/news/rss.xml': 'https://deepmind.google/blog/rss.xml',
+  'https://raw.githubusercontent.com/leontloveless/ai-rss-feeds/main/feeds/deepmind-blog.xml': 'https://deepmind.google/blog/rss.xml',
+  // OpenAI
+  'https://openai.com/engineering/rss.xml': 'https://openai.com/news/rss.xml',
+  'https://openai.com/blog/rss.xml': 'https://openai.com/news/rss.xml',
+  'https://openai.com/news/rss': 'https://openai.com/news/rss.xml',
+  'https://openai.com/feed.xml': 'https://openai.com/news/rss.xml',
+  'https://openai.com/rss.xml': 'https://openai.com/news/rss.xml',
+};
+
+export function findCanonicalFeedUrl(feed: Pick<FeedConfig, 'id' | 'name' | 'url'>): string | undefined {
+  // 1. Direct registry ID match
+  const byId = REGISTRY_FEEDS.get(feed.id)?.feed.url;
+  if (byId) return byId;
+
+  // 2. Known URL redirect lookup
+  const cleanUrl = feed.url.trim().replace(/\/+$/, '');
+  const normUrl = normalizeForComparison(feed.url);
+  for (const [bad, good] of Object.entries(KNOWN_FEED_URL_REDIRECTS)) {
+    if (cleanUrl === bad.replace(/\/+$/, '') || normUrl === normalizeForComparison(bad)) {
+      return good;
+    }
+  }
+
+  // 3. Name & Domain heuristic matching against registry
+  const lowerName = (feed.name || '').trim().toLowerCase();
+  for (const [, { feed: regFeed }] of REGISTRY_FEEDS) {
+    const regLowerName = regFeed.name.toLowerCase();
+    const nameMatch =
+      lowerName === regLowerName ||
+      (lowerName.includes('deepmind') && regLowerName.includes('deepmind')) ||
+      (lowerName.includes('openai') && regLowerName.includes('openai'));
+
+    if (nameMatch) {
+      try {
+        const feedHost = new URL(feed.url).hostname.replace(/^www\./, '').toLowerCase();
+        const regHost = new URL(regFeed.url).hostname.replace(/^www\./, '').toLowerCase();
+        if (
+          feedHost.includes(regHost) ||
+          regHost.includes(feedHost) ||
+          feedHost.includes('deepmind') ||
+          feedHost.includes('openai')
+        ) {
+          return regFeed.url;
+        }
+      } catch {}
+    }
+  }
+
+  return undefined;
+}
+
 // Saved lists keep the URL a feed had when it was stored, so a corrected registry URL would
 // never reach existing installs. Registry feeds can't be edited in the app, so take their
-// URL from the registry. Returns the same array when nothing changed.
+// URL from the registry. Also upgrades known outdated/broken endpoints. Returns the same array when nothing changed.
 export function withRegistryUrls(feeds: FeedConfig[]): FeedConfig[] {
   let changed = false;
-  const result = feeds.map(f => {
-    const url = REGISTRY_FEEDS.get(f.id)?.feed.url;
-    if (!url || url === f.url) return f;
+  const updated = feeds.map(f => {
+    const canonical = findCanonicalFeedUrl(f);
+    if (!canonical || canonical === f.url) return f;
     changed = true;
-    return { ...f, url };
+    return { ...f, url: canonical };
   });
-  return changed ? result : feeds;
+
+  // Deduplicate in case updating a legacy URL created a duplicate of an existing registry/custom feed
+  const seenUrls = new Set<string>();
+  const deduped: FeedConfig[] = [];
+  for (const f of updated) {
+    const norm = normalizeForComparison(f.url);
+    if (!seenUrls.has(norm)) {
+      seenUrls.add(norm);
+      deduped.push(f);
+    } else {
+      changed = true;
+      const existing = deduped.find(d => normalizeForComparison(d.url) === norm);
+      if (existing && !existing.enabled && f.enabled) {
+        existing.enabled = true;
+      }
+    }
+  }
+
+  return changed ? deduped : feeds;
 }
 
 // Mixed registry feeds and custom feeds are keyword pre-filtered; the rest go straight to Gemini.

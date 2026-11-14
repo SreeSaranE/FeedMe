@@ -1,9 +1,9 @@
 import { XMLParser } from 'fast-xml-parser';
 import { RawFeedEntry } from '../types';
-import { fetchTextWithTimeout } from './http';
+import { fetchTextWithTimeout, NetworkError } from './http';
 import { normalizeFeedUrl } from '../utils/url';
 import { resolveRelativeUrl } from '../utils/feedLogo';
-import { TOPICS } from '../constants/topics';
+import { TOPICS, findCanonicalFeedUrl } from '../constants/topics';
 
 export interface ResolvedFeed {
   feedUrl: string;
@@ -314,17 +314,44 @@ export const RssParserService = {
     feedName: string,
     feedUrl: string,
     limit = 4
-  ): Promise<{ entries: RawFeedEntry[]; iconUrl?: string }> {
+  ): Promise<{ entries: RawFeedEntry[]; iconUrl?: string; resolvedUrl?: string }> {
     const normalized = normalizeFeedUrl(feedUrl);
-    const response = await fetchTextWithTimeout(normalized, {
-      headers: {
-        'User-Agent': USER_AGENT,
-        'Accept': 'application/rss+xml, application/xml, text/xml, */*'
-      }
-    });
+    let response: { ok: boolean; status: number; text: string };
+    let directFetchFailed = false;
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status} fetching ${feedName}`);
+    try {
+      response = await fetchTextWithTimeout(normalized, {
+        headers: {
+          'User-Agent': USER_AGENT,
+          'Accept': 'application/rss+xml, application/xml, text/xml, */*'
+        }
+      });
+      if (!response.ok) {
+        directFetchFailed = true;
+      }
+    } catch (err) {
+      if (err instanceof NetworkError) {
+        throw err;
+      }
+      directFetchFailed = true;
+      response = { ok: false, status: 0, text: '' };
+    }
+
+    if (directFetchFailed) {
+      // Auto-healing: attempt candidate discovery and repair before throwing
+      try {
+        const resolved = await this.resolveFeed(feedName, normalized, limit);
+        if (resolved.entries.length > 0) {
+          return {
+            entries: resolved.entries,
+            iconUrl: resolved.iconUrl,
+            resolvedUrl: resolved.feedUrl,
+          };
+        }
+      } catch {
+        // Fall back to original HTTP error
+      }
+      throw new Error(`HTTP ${response.status || 'failed'} fetching ${feedName}`);
     }
 
     const { entries, iconUrl } = parseFeedXml(response.text, feedName, limit, normalized);
@@ -371,24 +398,40 @@ export const RssParserService = {
     // 2. Candidate collection for discovery
     const candidates: string[] = [];
 
+    // 2a. Check canonical registry mapping or known redirects first
+    const canonical = findCanonicalFeedUrl({ id: '', name: feedName, url: normalized });
+    if (canonical && canonical !== normalized && !candidates.includes(canonical)) {
+      candidates.push(canonical);
+    }
+
     let parsedUrl: URL | null = null;
     try {
       parsedUrl = new URL(normalized);
     } catch {}
 
     const domain = parsedUrl?.hostname.toLowerCase().replace(/^www\./, '');
+    const lowerFeedName = (feedName || '').trim().toLowerCase();
 
-    // 2a. Match against known TOPICS registry feeds by domain
-    if (domain) {
-      for (const topic of TOPICS) {
-        for (const f of topic.feeds) {
-          try {
-            const h = new URL(f.url).hostname.toLowerCase().replace(/^www\./, '');
-            if (h === domain && !candidates.includes(f.url)) {
-              candidates.push(f.url);
-            }
-          } catch {}
-        }
+    // 2b. Match against known TOPICS registry feeds by domain or name
+    for (const topic of TOPICS) {
+      for (const f of topic.feeds) {
+        try {
+          const h = new URL(f.url).hostname.toLowerCase().replace(/^www\./, '');
+          const fLowerName = f.name.toLowerCase();
+          const matchesDomain =
+            domain &&
+            (h === domain ||
+              (domain.includes('deepmind') && h.includes('deepmind')) ||
+              (domain.includes('openai') && h.includes('openai')));
+          const matchesName =
+            (lowerFeedName.includes('deepmind') && fLowerName.includes('deepmind')) ||
+            (lowerFeedName.includes('openai') && fLowerName.includes('openai')) ||
+            (lowerFeedName && fLowerName === lowerFeedName);
+
+          if ((matchesDomain || matchesName) && !candidates.includes(f.url)) {
+            candidates.push(f.url);
+          }
+        } catch {}
       }
     }
 

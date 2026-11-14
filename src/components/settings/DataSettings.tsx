@@ -6,7 +6,7 @@ import { File } from 'expo-file-system';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Clipboard from 'expo-clipboard';
 import { OpmlService, DEFAULT_IMPORT_CATEGORY } from '../../services/opmlService';
-import { findDuplicateFeed, getAvailableCategories, sortFeeds } from '../../constants/topics';
+import { findDuplicateFeed, getAvailableCategories, sortFeeds, findCanonicalFeedUrl } from '../../constants/topics';
 import { FeedConfig } from '../../types';
 import { useTheme, spacing, radius, type } from '../../theme';
 import { Card, SectionLabel, SettingsPage, NavRow } from './shared';
@@ -89,7 +89,14 @@ export const DataSettings: React.FC<Props> = ({
 
     for (let i = 0; i < result.feeds.length; i++) {
       const parsedFeed = result.feeds[i];
-      const isDuplicate = findDuplicateFeed(parsedFeed.url, [...feeds, ...newFeeds]);
+      const canonicalUrl =
+        findCanonicalFeedUrl({
+          id: '',
+          name: parsedFeed.name,
+          url: parsedFeed.url,
+        }) || parsedFeed.url;
+
+      const isDuplicate = findDuplicateFeed(canonicalUrl, [...feeds, ...newFeeds]);
       if (isDuplicate) {
         duplicateCount++;
         continue;
@@ -105,7 +112,7 @@ export const DataSettings: React.FC<Props> = ({
       newFeeds.push({
         id: `custom-${Date.now()}-${i}`,
         name: parsedFeed.name,
-        url: parsedFeed.url,
+        url: canonicalUrl,
         enabled: true,
         category: matchedCategory,
         iconUrl: parsedFeed.iconUrl,

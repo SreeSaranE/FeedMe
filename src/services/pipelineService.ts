@@ -117,11 +117,15 @@ export const PipelineService = {
       const prefilter = needsKeywordFilter(feed.id) ? keywordRegex : null;
 
       try {
-        const { entries, iconUrl } = await RssParserService.fetchFeedWithMeta(
+        const { entries, iconUrl, resolvedUrl } = await RssParserService.fetchFeedWithMeta(
           feed.name,
           feed.url,
           settings.articlesPerFeed || 3
         );
+        if (resolvedUrl && resolvedUrl !== feed.url) {
+          feed.url = resolvedUrl;
+          feedsModified = true;
+        }
         if (iconUrl && iconUrl !== feed.iconUrl) {
           feed.iconUrl = iconUrl;
           feedsModified = true;

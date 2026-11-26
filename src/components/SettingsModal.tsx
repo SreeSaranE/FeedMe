@@ -96,7 +96,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       selectedTopics: topicIds,
       deleteOlderThanDays: parseDays(deleteDays) ?? settings.deleteOlderThanDays,
     });
-    await onSaveFeeds(feedList);
+    await onSaveFeeds(sortFeeds(feedList));
     onClose();
   };
 
@@ -162,8 +162,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   // Hardware back / swipe-down: step back through pages before closing.
   const handleBack = () => {
     if (checkingKey) return;
-    if (page === 'home' || page === initialPage) handleSaveAndClose();
-    else setPage('home');
+    if (page === 'home' || page === initialPage) {
+      handleSaveAndClose();
+    } else {
+      if (page === 'feeds') {
+        setFeedList(current => sortFeeds(current));
+      }
+      setPage('home');
+    }
   };
 
   const modelLabel = AVAILABLE_MODELS.find(m => m.value === model)?.label ?? model;
@@ -183,7 +189,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <View style={styles.side}>
             {page !== 'home' && page !== initialPage && (
               <Pressable
-                onPress={() => setPage('home')}
+                onPress={() => {
+                  if (page === 'feeds') {
+                    setFeedList(current => sortFeeds(current));
+                  }
+                  setPage('home');
+                }}
                 disabled={checkingKey}
                 hitSlop={8}
                 accessibilityRole="button"

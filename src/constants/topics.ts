@@ -359,8 +359,8 @@ export interface FeedCategoryGroup {
   feeds: FeedConfig[];
 }
 
-export function groupFeedsByCategory(feeds: FeedConfig[]): FeedCategoryGroup[] {
-  const sorted = sortFeeds(feeds);
+export function groupFeedsByCategory(feeds: FeedConfig[], preserveFeedOrder = false): FeedCategoryGroup[] {
+  const sorted = preserveFeedOrder ? feeds : sortFeeds(feeds);
   const groups: FeedCategoryGroup[] = [];
   const map = new Map<string, FeedConfig[]>();
 
@@ -373,6 +373,16 @@ export function groupFeedsByCategory(feeds: FeedConfig[]): FeedCategoryGroup[] {
       groups.push({ category: cat, feeds: list });
     }
     list.push(feed);
+  }
+
+  // When preserving feed order, sort category sections by the standard category order
+  if (preserveFeedOrder) {
+    groups.sort((a, b) => {
+      const rankA = getCategoryRank(a.category);
+      const rankB = getCategoryRank(b.category);
+      if (rankA !== rankB) return rankA - rankB;
+      return a.category.localeCompare(b.category);
+    });
   }
 
   return groups;

@@ -68,7 +68,7 @@ export const FeedsSettings: React.FC<Props> = ({
   };
 
   const toggle = (id: string) =>
-    onChange(sortFeeds(feeds.map(f => (f.id === id ? { ...f, enabled: !f.enabled } : f))));
+    onChange(feeds.map(f => (f.id === id ? { ...f, enabled: !f.enabled } : f)));
 
   const resetAddForm = () => {
     Keyboard.dismiss();
@@ -185,7 +185,7 @@ export const FeedsSettings: React.FC<Props> = ({
     ]);
   };
 
-  const groups = useMemo(() => groupFeedsByCategory(feeds), [feeds]);
+  const groups = useMemo(() => groupFeedsByCategory(feeds, true), [feeds]);
 
   const inputStyle = [
     type.body,

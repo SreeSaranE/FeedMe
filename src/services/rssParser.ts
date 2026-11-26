@@ -110,6 +110,28 @@ function extractImageUrlFromHtml(html: string): string | undefined {
   return undefined;
 }
 
+// Max allowed image size from RSS enclosure attribute: 8MB
+const MAX_ENCLOSURE_IMAGE_BYTES = 8 * 1024 * 1024;
+
+function isAcceptableImage(url: string, lengthStr?: unknown): boolean {
+  if (!url || typeof url !== 'string') return false;
+  const clean = url.trim();
+  if (!clean || clean.startsWith('data:')) return false;
+
+  // Check declared byte length if provided by the RSS feed
+  if (lengthStr !== undefined && lengthStr !== null) {
+    const bytes = Number(lengthStr);
+    if (Number.isFinite(bytes) && bytes > MAX_ENCLOSURE_IMAGE_BYTES) {
+      return false;
+    }
+  }
+
+  // Reject SVG vectors in RSS hero slots (potential XSS payload or expensive render)
+  if (/\.svg(?:\?.*)?$/i.test(clean)) return false;
+
+  return true;
+}
+
 function extractHeroImage(item: any): string | undefined {
   // 1. Check enclosure
   if (item.enclosure) {
@@ -117,7 +139,12 @@ function extractHeroImage(item: any): string | undefined {
     for (const enc of enclosures) {
       const url = enc['@_url'];
       const type = enc['@_type'] || '';
-      if (url && (type.includes('image') || url.match(/\.(jpg|jpeg|png|webp|avif)/i))) {
+      const length = enc['@_length'];
+      if (
+        url &&
+        (type.includes('image') || url.match(/\.(jpg|jpeg|png|webp|avif)/i)) &&
+        isAcceptableImage(url, length)
+      ) {
         return url;
       }
     }
@@ -128,7 +155,9 @@ function extractHeroImage(item: any): string | undefined {
   if (mediaContent) {
     const medias = Array.isArray(mediaContent) ? mediaContent : [mediaContent];
     for (const m of medias) {
-      if (m['@_url']) return m['@_url'];
+      const url = m['@_url'];
+      const fileSize = m['@_fileSize'];
+      if (url && isAcceptableImage(url, fileSize)) return url;
     }
   }
 
@@ -137,7 +166,8 @@ function extractHeroImage(item: any): string | undefined {
   if (mediaThumbnail) {
     const thumbs = Array.isArray(mediaThumbnail) ? mediaThumbnail : [mediaThumbnail];
     for (const t of thumbs) {
-      if (t['@_url']) return t['@_url'];
+      const url = t['@_url'];
+      if (url && isAcceptableImage(url)) return url;
     }
   }
 
@@ -145,7 +175,7 @@ function extractHeroImage(item: any): string | undefined {
   const content = item['content:encoded'] || item.content || item.summary || item.description || '';
   const rawHtml = typeof content === 'string' ? content : (content['#text'] || '');
   const imgFromHtml = extractImageUrlFromHtml(rawHtml);
-  if (imgFromHtml) return imgFromHtml;
+  if (imgFromHtml && isAcceptableImage(imgFromHtml)) return imgFromHtml;
 
   return undefined;
 }

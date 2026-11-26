@@ -109,8 +109,9 @@ export const DataSettings: React.FC<Props> = ({
 
       addedCategories.add(matchedCategory);
 
+      const salt = Math.random().toString(36).slice(2, 8);
       newFeeds.push({
-        id: `custom-${Date.now()}-${i}`,
+        id: `custom-${Date.now()}-${salt}-${i}`,
         name: parsedFeed.name,
         url: canonicalUrl,
         enabled: true,
@@ -140,6 +141,11 @@ export const DataSettings: React.FC<Props> = ({
   };
 
   const readPickedFile = async (uri: string): Promise<string> => {
+    // Restrict to local document picker schemes only (reject network protocols e.g. http/https/ftp)
+    if (!uri.startsWith('content://') && !uri.startsWith('file://')) {
+      throw new Error('Invalid file scheme. Only local files can be imported.');
+    }
+
     // 1. Try modern File API from expo-file-system (native support for both content:// and file://)
     try {
       const file = new File(uri);
@@ -170,7 +176,7 @@ export const DataSettings: React.FC<Props> = ({
       console.warn('[readPickedFile] FileSystem.readAsStringAsync error:', err);
     }
 
-    // 4. Try fetch() as a final fallback
+    // 4. Try fetch() only for verified local file:// or content:// schemes
     try {
       const res = await fetch(uri);
       return await res.text();

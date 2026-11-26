@@ -153,11 +153,12 @@ export const FeedsSettings: React.FC<Props> = ({
     );
     const resolvedCategory = existingMatch ?? rawCategory;
 
+    const salt = Math.random().toString(36).slice(2, 8);
     onChange(
       sortFeeds([
         ...feeds,
         {
-          id: `custom-${Date.now()}`,
+          id: `custom-${Date.now()}-${salt}`,
           name: finalFeedName || name.trim(),
           url: resolvedUrl,
           enabled: true,

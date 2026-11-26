@@ -21,6 +21,8 @@ function resolveCategoryForFeed(feed: FeedConfig): string {
   return matched ? matched.id : fallbackCat;
 }
 
+let syncLock: Promise<any> | null = null;
+
 export const PipelineService = {
   async runSync(
     onProgress?: (progress: SyncProgress) => void,
@@ -32,7 +34,12 @@ export const PipelineService = {
     offline?: boolean;
     updatedFeeds?: FeedConfig[];
   }> {
-    const feeds = await StorageService.getFeeds();
+    if (syncLock) {
+      return syncLock;
+    }
+
+    const syncExecution = (async () => {
+      const feeds = await StorageService.getFeeds();
     const settings = await StorageService.getSettings();
 
     // Auto-delete per the user's "delete after N days" setting. At the start of the run, so
@@ -273,6 +280,14 @@ export const PipelineService = {
       missingApiKey: !hasApiKey,
       updatedFeeds: feedsModified ? feeds : undefined,
     };
+    })();
+
+    syncLock = syncExecution;
+    try {
+      return await syncExecution;
+    } finally {
+      syncLock = null;
+    }
   },
 
   async summarizeBacklog(

@@ -28,6 +28,21 @@ export function normalizeForComparison(raw: string): string {
 }
 
 /**
+ * Validates that a URL is safe for in-app browser navigation (http/https only).
+ */
+export function isSafeWebUrl(raw: unknown): boolean {
+  if (typeof raw !== 'string') return false;
+  const trimmed = raw.trim();
+  if (!trimmed) return false;
+  try {
+    const parsed = new URL(trimmed);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return /^https?:\/\//i.test(trimmed);
+  }
+}
+
+/**
  * Checks if two feed URLs point to the same resource.
  */
 export function areFeedUrlsEqual(a: string, b: string): boolean {
